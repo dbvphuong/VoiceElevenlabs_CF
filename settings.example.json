@@ -1,0 +1,71 @@
+{
+  "ElevenLabsApiKey": "",
+  "VoiceId": "21m00Tcm4TlvDq8ikWAM",
+  "ModelIndex": 0,
+  "LangIndex": 0,
+  "Speed": 0.9,
+  "Style": 34,
+  "Stability": 47,
+  "Similarity": 38,
+  "SpeakerBoost": false,
+  "VoiceTemplates": [
+    {
+      "Name": "Rachel (Nữ Mỹ tự nhiên)",
+      "VoiceId": "21m00Tcm4TlvDq8ikWAM",
+      "ModelIndex": 0,
+      "LangIndex": 0,
+      "Speed": 0.9,
+      "Style": 30,
+      "Stability": 50,
+      "Similarity": 40,
+      "SpeakerBoost": false
+    },
+    {
+      "Name": "Adam (Nam trầm tự tin)",
+      "VoiceId": "bfGb7JTLUnZebZRiFYyq",
+      "ModelIndex": 0,
+      "LangIndex": 0,
+      "Speed": 0.9,
+      "Style": 25,
+      "Stability": 55,
+      "Similarity": 45,
+      "SpeakerBoost": false
+    },
+    {
+      "Name": "George (Nam Anh kể chuyện)",
+      "VoiceId": "JBFqnCBsd6RMkjVDRZzb",
+      "ModelIndex": 0,
+      "LangIndex": 0,
+      "Speed": 0.9,
+      "Style": 20,
+      "Stability": 60,
+      "Similarity": 50,
+      "SpeakerBoost": false
+    },
+    {
+      "Name": "Sarah (Nữ tự tin truyền cảm)",
+      "VoiceId": "EXAVITQu4vr4xnSDxMaL",
+      "ModelIndex": 0,
+      "LangIndex": 0,
+      "Speed": 0.95,
+      "Style": 30,
+      "Stability": 50,
+      "Similarity": 40,
+      "SpeakerBoost": false
+    }
+  ],
+  "SelectedVoiceTemplateName": "Rachel (Nữ Mỹ tự nhiên)",
+  "FolderVoiceProfiles": [],
+  "StaticProxies": "",
+  "RotatingProxies": "",
+  "Folder": "",
+  "Folders": [],
+  "ExcludedFiles": [],
+  "ScanSubfolders": false,
+  "OutputFileSuffix": "",
+  "SilenceEnabled": true,
+  "SilenceValue": 0.3,
+  "ChunkSize": 333,
+  "ThreadCount": 1,
+  "ContinueWorkerOnBlockingErrors": false
+}

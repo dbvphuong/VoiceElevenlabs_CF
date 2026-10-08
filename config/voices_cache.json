@@ -1,0 +1,532 @@
+[
+  {
+    "voice_id": "21m00Tcm4TlvDq8ikWAM",
+    "name": "Rachel - Calm, Gentle",
+    "category": "premade",
+    "labels": {
+      "gender": "female",
+      "accent": "american",
+      "age": "young",
+      "use_case": "narration",
+      "descriptive": "calm"
+    }
+  },
+  {
+    "voice_id": "j9jfwdrw7BRfcR43Qohk",
+    "name": "Frederick Surrey - vũ trụ",
+    "category": "professional",
+    "labels": {
+      "locale": "en-GB",
+      "age": "middle_aged",
+      "language": "en",
+      "descriptive": "calm",
+      "accent": "british",
+      "gender": "male",
+      "use_case": "narrative_story"
+    },
+    "description": "Professional, calm, well spoken British narrator full of intrigue and wonder. Suitable for Nature, Science, Mystery & History documentaries or audio books & narration projects that need a smooth & velvety tone.",
+    "settings": {
+      "stability": 0.7,
+      "use_speaker_boost": true,
+      "similarity_boost": 0.86,
+      "style": 0.0,
+      "speed": 0.9
+    },
+    "preview_url": "https://storage.googleapis.com/eleven-public-prod/custom/voices/j9jfwdrw7BRfcR43Qohk/Vyj86dr4NJ1Tr82nEPdw.mp3"
+  },
+  {
+    "voice_id": "pNInz6obpgDQGcFmaJgB",
+    "name": "Adam - Dominant, Firm",
+    "category": "premade",
+    "labels": {
+      "gender": "male",
+      "language": "en",
+      "accent": "american",
+      "age": "middle_aged",
+      "use_case": "social_media"
+    },
+    "description": "A bright tenor pitch that immediately cuts through. The delivery is brash and openly confident, speaking with unwavering certainty and a slightly aggressive self-assurance.",
+    "settings": null,
+    "preview_url": "https://storage.googleapis.com/eleven-public-prod/premade/voices/pNInz6obpgDQGcFmaJgB/d6905d7a-dd26-4187-bfff-1bd3a5ea7cac.mp3"
+  },
+  {
+    "voice_id": "bfGb7JTLUnZebZRiFYyq",
+    "name": "Adam - Distinct, Deep and Engaging",
+    "category": "professional",
+    "labels": {
+      "language": "en",
+      "age": "middle_aged",
+      "gender": "male",
+      "descriptive": "deep",
+      "use_case": "narrative_story",
+      "accent": "american"
+    },
+    "description": "Distinct tone, deep pitch, engaging long-form voice-over and narration.",
+    "settings": null,
+    "preview_url": "https://storage.googleapis.com/eleven-public-prod/database/workspace/b3709ae8839847b6a804736de5e5651c/voices/bfGb7JTLUnZebZRiFYyq/sQiMNu3kolXvAQGhCb2s.mp3"
+  },
+  {
+    "voice_id": "EXAVITQu4vr4xnSDxMaL",
+    "name": "Sarah - Mature, Reassuring, Confident",
+    "category": "premade",
+    "labels": {
+      "gender": "female",
+      "language": "en",
+      "accent": "american",
+      "age": "young",
+      "use_case": "entertainment_tv",
+      "descriptive": "professional"
+    },
+    "description": "Young adult woman with a confident and warm, mature quality and a reassuring, professional tone.",
+    "settings": null,
+    "preview_url": "https://storage.googleapis.com/eleven-public-prod/premade/voices/EXAVITQu4vr4xnSDxMaL/01a3e33c-6e99-4ee7-8543-ff2216a32186.mp3"
+  },
+  {
+    "voice_id": "JBFqnCBsd6RMkjVDRZzb",
+    "name": "George - Warm, Captivating Storyteller",
+    "category": "premade",
+    "labels": {
+      "gender": "male",
+      "language": "en",
+      "accent": "british",
+      "age": "middle_aged",
+      "use_case": "narrative_story",
+      "descriptive": "mature"
+    },
+    "description": "Warm resonance that instantly captivates listeners.",
+    "settings": null,
+    "preview_url": "https://api.us.elevenlabs.io/v1/voices/JBFqnCBsd6RMkjVDRZzb/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJwcmVtYWRlIiwiZmlsZW5hbWUiOiJlNjIwNmQxYS0wNzIxLTQ3ODctYWFmYi0wNmE2ZTcwNWNhYzUubXAzIiwidGltZXN0YW1wIjoxNzkxNDcxNjAwMDAwMDAwfQ%3D%3D"
+  },
+  {
+    "voice_id": "CwhRBWXzGAHq8TQ4Fs17",
+    "name": "Roger - Laid-Back, Casual, Resonant",
+    "category": "premade",
+    "labels": {
+      "gender": "male",
+      "language": "en",
+      "accent": "american",
+      "age": "middle_aged",
+      "use_case": "conversational",
+      "descriptive": "classy"
+    },
+    "description": "Easy going and perfect for casual conversations.",
+    "settings": null,
+    "preview_url": "https://storage.googleapis.com/eleven-public-prod/premade/voices/CwhRBWXzGAHq8TQ4Fs17/58ee3ff5-f6f2-4628-93b8-e38eb31806b0.mp3"
+  },
+  {
+    "voice_id": "FGY2WhTYpPnrIDTdsKH5",
+    "name": "Laura - Enthusiast, Quirky Attitude",
+    "category": "premade",
+    "labels": {
+      "gender": "female",
+      "language": "en",
+      "accent": "american",
+      "age": "young",
+      "use_case": "social_media",
+      "descriptive": "sassy"
+    },
+    "description": "This young adult female voice delivers sunny enthusiasm with a quirky attitude.",
+    "settings": null,
+    "preview_url": "https://api.us.elevenlabs.io/v1/voices/FGY2WhTYpPnrIDTdsKH5/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJwcmVtYWRlIiwiZmlsZW5hbWUiOiI2NzM0MTc1OS1hZDA4LTQxYTUtYmU2ZS1kZTEyZmU0NDg2MTgubXAzIiwidGltZXN0YW1wIjoxNzkxNDcxNjAwMDAwMDAwfQ%3D%3D"
+  },
+  {
+    "voice_id": "IKne3meq5aSn9XLyUdCD",
+    "name": "Charlie - Deep, Confident, Energetic",
+    "category": "premade",
+    "labels": {
+      "gender": "male",
+      "language": "en",
+      "accent": "australian",
+      "age": "young",
+      "use_case": "conversational",
+      "descriptive": "hyped"
+    },
+    "description": "A young Australian male with a confident and energetic voice.",
+    "settings": null,
+    "preview_url": "https://api.us.elevenlabs.io/v1/voices/IKne3meq5aSn9XLyUdCD/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJwcmVtYWRlIiwiZmlsZW5hbWUiOiIxMDJkZTZmMi0yMmVkLTQzZTAtYTFmMS0xMTFmYTc1YzU0ODEubXAzIiwidGltZXN0YW1wIjoxNzkxNDcxNjAwMDAwMDAwfQ%3D%3D"
+  },
+  {
+    "voice_id": "N2lVS1w4EtoT3dr4eOWO",
+    "name": "Callum - Husky Trickster",
+    "category": "premade",
+    "labels": {
+      "gender": "male",
+      "language": "en",
+      "accent": "american",
+      "age": "middle_aged",
+      "use_case": "characters_animation"
+    },
+    "description": "Deceptively gravelly, yet unsettling edge.",
+    "settings": null,
+    "preview_url": "https://storage.googleapis.com/eleven-public-prod/premade/voices/N2lVS1w4EtoT3dr4eOWO/ac833bd8-ffda-4938-9ebc-b0f99ca25481.mp3"
+  },
+  {
+    "voice_id": "SAz9YHcvj6GT2YYXdXww",
+    "name": "River - Relaxed, Neutral, Informative",
+    "category": "premade",
+    "labels": {
+      "gender": "neutral",
+      "language": "en",
+      "accent": "american",
+      "age": "middle_aged",
+      "use_case": "conversational",
+      "descriptive": "calm"
+    },
+    "description": "A relaxed, neutral voice ready for narrations or conversational projects.",
+    "settings": null,
+    "preview_url": "https://storage.googleapis.com/eleven-public-prod/premade/voices/SAz9YHcvj6GT2YYXdXww/e6c95f0b-2227-491a-b3d7-2249240decb7.mp3"
+  },
+  {
+    "voice_id": "SOYHLrjzK2X1ezoPC6cr",
+    "name": "Harry - Fierce Warrior",
+    "category": "premade",
+    "labels": {
+      "gender": "male",
+      "language": "en",
+      "accent": "american",
+      "age": "young",
+      "use_case": "characters_animation",
+      "descriptive": "rough"
+    },
+    "description": "An animated warrior ready to charge forward.",
+    "settings": null,
+    "preview_url": "https://storage.googleapis.com/eleven-public-prod/premade/voices/SOYHLrjzK2X1ezoPC6cr/86d178f6-f4b6-4e0e-85be-3de19f490794.mp3"
+  },
+  {
+    "voice_id": "TX3LPaxmHKxFdv7VOQHJ",
+    "name": "Liam - Energetic, Social Media Creator",
+    "category": "premade",
+    "labels": {
+      "gender": "male",
+      "language": "en",
+      "accent": "american",
+      "age": "young",
+      "use_case": "social_media",
+      "descriptive": "confident"
+    },
+    "description": "A young adult with energy and warmth - suitable for reels and shorts.",
+    "settings": null,
+    "preview_url": "https://storage.googleapis.com/eleven-public-prod/premade/voices/TX3LPaxmHKxFdv7VOQHJ/63148076-6363-42db-aea8-31424308b92c.mp3"
+  },
+  {
+    "voice_id": "Xb7hH8MSUJpSbSDYk0k2",
+    "name": "Alice - Clear, Engaging Educator",
+    "category": "premade",
+    "labels": {
+      "gender": "female",
+      "language": "en",
+      "accent": "british",
+      "age": "middle_aged",
+      "use_case": "informative_educational",
+      "descriptive": "professional"
+    },
+    "description": "Clear and engaging, friendly woman with a British accent suitable for e-learning.",
+    "settings": null,
+    "preview_url": "https://storage.googleapis.com/eleven-public-prod/premade/voices/Xb7hH8MSUJpSbSDYk0k2/d10f7534-11f6-41fe-a012-2de1e482d336.mp3"
+  },
+  {
+    "voice_id": "XrExE9yKIg1WjnnlVkGX",
+    "name": "Matilda - Knowledgable, Professional",
+    "category": "premade",
+    "labels": {
+      "gender": "female",
+      "language": "en",
+      "accent": "american",
+      "age": "middle_aged",
+      "use_case": "informative_educational",
+      "descriptive": "upbeat"
+    },
+    "description": "A professional woman with a pleasing alto pitch. Suitable for many use cases.",
+    "settings": null,
+    "preview_url": "https://storage.googleapis.com/eleven-public-prod/premade/voices/XrExE9yKIg1WjnnlVkGX/b930e18d-6b4d-466e-bab2-0ae97c6d8535.mp3"
+  },
+  {
+    "voice_id": "bIHbv24MWmeRgasZH58o",
+    "name": "Will - Relaxed Optimist",
+    "category": "premade",
+    "labels": {
+      "gender": "male",
+      "language": "en",
+      "accent": "american",
+      "age": "young",
+      "use_case": "conversational",
+      "descriptive": "chill"
+    },
+    "description": "Conversational and laid back.",
+    "settings": null,
+    "preview_url": "https://storage.googleapis.com/eleven-public-prod/premade/voices/bIHbv24MWmeRgasZH58o/8caf8f3d-ad29-4980-af41-53f20c72d7a4.mp3"
+  },
+  {
+    "voice_id": "cgSgspJ2msm6clMCkdW9",
+    "name": "Jessica - Playful, Bright, Warm",
+    "category": "premade",
+    "labels": {
+      "gender": "female",
+      "language": "en",
+      "accent": "american",
+      "age": "young",
+      "use_case": "conversational",
+      "descriptive": "cute"
+    },
+    "description": "Young and popular, this playful American female voice is perfect for trendy content.",
+    "settings": null,
+    "preview_url": "https://storage.googleapis.com/eleven-public-prod/premade/voices/cgSgspJ2msm6clMCkdW9/56a97bf8-b69b-448f-846c-c3a11683d45a.mp3"
+  },
+  {
+    "voice_id": "cjVigY5qzO86Huf0OWal",
+    "name": "Eric - Smooth, Trustworthy",
+    "category": "premade",
+    "labels": {
+      "gender": "male",
+      "language": "en",
+      "accent": "american",
+      "age": "middle_aged",
+      "use_case": "conversational",
+      "descriptive": "classy"
+    },
+    "description": "A smooth tenor pitch from a man in his 40s - perfect for agentic use cases.",
+    "settings": null,
+    "preview_url": "https://storage.googleapis.com/eleven-public-prod/premade/voices/cjVigY5qzO86Huf0OWal/d098fda0-6456-4030-b3d8-63aa048c9070.mp3"
+  },
+  {
+    "voice_id": "hpp4J3VqNfWAUOO0d1Us",
+    "name": "Bella - Professional, Bright, Warm",
+    "category": "premade",
+    "labels": {
+      "gender": "female",
+      "language": "en",
+      "accent": "american",
+      "age": "middle_aged",
+      "use_case": "informative_educational",
+      "descriptive": "professional"
+    },
+    "description": "This voice is warm, bright, and professional, characterized by a Standard American accent and a polished, narrative quality. It features a medium-high pitch with crisp diction and a deliberate, rhythmic pace that makes it highly intelligible and engaging for long-form listening.",
+    "settings": null,
+    "preview_url": "https://storage.googleapis.com/eleven-public-prod/premade/voices/hpp4J3VqNfWAUOO0d1Us/dab0f5ba-3aa4-48a8-9fad-f138fea1126d.mp3"
+  },
+  {
+    "voice_id": "iP95p4xoKVk53GoZ742B",
+    "name": "Chris - Charming, Down-to-Earth",
+    "category": "premade",
+    "labels": {
+      "gender": "male",
+      "language": "en",
+      "accent": "american",
+      "age": "middle_aged",
+      "use_case": "conversational",
+      "descriptive": "casual"
+    },
+    "description": "Natural and real, this down-to-earth voice is great across many use-cases.",
+    "settings": null,
+    "preview_url": "https://storage.googleapis.com/eleven-public-prod/premade/voices/iP95p4xoKVk53GoZ742B/3f4bde72-cc48-40dd-829f-57fbf906f4d7.mp3"
+  },
+  {
+    "voice_id": "nPczCjzI2devNBz1zQrb",
+    "name": "Brian - Deep, Resonant and Comforting",
+    "category": "premade",
+    "labels": {
+      "gender": "male",
+      "language": "en",
+      "accent": "american",
+      "age": "middle_aged",
+      "use_case": "social_media",
+      "descriptive": "classy"
+    },
+    "description": "Middle-aged man with a resonant and comforting tone. Great for narrations and advertisements.",
+    "settings": null,
+    "preview_url": "https://api.us.elevenlabs.io/v1/voices/nPczCjzI2devNBz1zQrb/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJwcmVtYWRlIiwiZmlsZW5hbWUiOiIyZGQzZTcyYy00ZmQzLTQyZjEtOTNlYS1hYmM1ZDRlNWFhMWQubXAzIiwidGltZXN0YW1wIjoxNzkxNDcxNjAwMDAwMDAwfQ%3D%3D"
+  },
+  {
+    "voice_id": "onwK4e9ZLuTAKqWW03F9",
+    "name": "Daniel - Steady Broadcaster",
+    "category": "premade",
+    "labels": {
+      "gender": "male",
+      "language": "en",
+      "accent": "british",
+      "age": "middle_aged",
+      "use_case": "informative_educational",
+      "descriptive": "formal"
+    },
+    "description": "A strong voice perfect for delivering a professional broadcast or news story.",
+    "settings": null,
+    "preview_url": "https://api.us.elevenlabs.io/v1/voices/onwK4e9ZLuTAKqWW03F9/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJwcmVtYWRlIiwiZmlsZW5hbWUiOiI3ZWVlMDIzNi0xYTcyLTRiODYtYjMwMy01ZGNhZGMwMDdiYTkubXAzIiwidGltZXN0YW1wIjoxNzkxNDcxNjAwMDAwMDAwfQ%3D%3D"
+  },
+  {
+    "voice_id": "pFZP5JQG7iQjIQuC4Bku",
+    "name": "Lily - Velvety Actress",
+    "category": "premade",
+    "labels": {
+      "gender": "female",
+      "language": "en",
+      "accent": "british",
+      "age": "middle_aged",
+      "use_case": "informative_educational",
+      "descriptive": "confident"
+    },
+    "description": "Velvety British female voice delivers news and narrations with warmth and clarity.",
+    "settings": null,
+    "preview_url": "https://storage.googleapis.com/eleven-public-prod/premade/voices/pFZP5JQG7iQjIQuC4Bku/89b68b35-b3dd-4348-a84a-a3c13a3c2b30.mp3"
+  },
+  {
+    "voice_id": "pqHfZKP75CvOlQylNhV4",
+    "name": "Bill - Wise, Mature, Balanced",
+    "category": "premade",
+    "labels": {
+      "gender": "male",
+      "language": "en",
+      "accent": "american",
+      "age": "old",
+      "use_case": "advertisement",
+      "descriptive": "crisp"
+    },
+    "description": "Friendly and comforting voice ready to narrate your stories.",
+    "settings": null,
+    "preview_url": "https://storage.googleapis.com/eleven-public-prod/premade/voices/pqHfZKP75CvOlQylNhV4/d782b3ff-84ba-4029-848c-acf01285524d.mp3"
+  },
+  {
+    "voice_id": "W1hAcdh0RNsPYUA7fkJh",
+    "name": "El Faraon - Deep, Powerful and Peaceful",
+    "category": "professional",
+    "labels": {
+      "accent": "colombian",
+      "age": "middle_aged",
+      "gender": "male",
+      "locale": "es-CO",
+      "use_case": "narrative_story",
+      "descriptive": "deep",
+      "language": "es"
+    },
+    "description": "c huệ dùng",
+    "settings": null,
+    "preview_url": "https://api.us.elevenlabs.io/v1/voices/W1hAcdh0RNsPYUA7fkJh/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJjdXN0b20iLCJ3b3Jrc3BhY2VfaWQiOiIxNWJhYTU3YjBmZDg0ZGJjOTA4MWUzZDdlZjE0Y2Q2MCIsImZpbGVuYW1lIjoibFU4NnFORks5dE9aSE43SDZxdFcubXAzIiwidGltZXN0YW1wIjoxNzkxNDcxNjAwMDAwMDAwfQ%3D%3D"
+  },
+  {
+    "voice_id": "UQoLnPXvf18gaKpLzfb8",
+    "name": "Sawyer - Calm, Measured and Serious",
+    "category": "professional",
+    "labels": {
+      "language": "en",
+      "age": "middle_aged",
+      "gender": "male",
+      "descriptive": "calm",
+      "use_case": "informative_educational",
+      "accent": "american"
+    },
+    "description": "Sawyer - Business Book Narrator - Upbeat, professional middle-aged male voice with a slight twinge of enthusiasm. Perfect for narrating business or motivational audiobooks.",
+    "settings": null,
+    "preview_url": "https://storage.googleapis.com/eleven-public-prod/database/workspace/ead69beb3df94405930b8aa490e27dbc/voices/UQoLnPXvf18gaKpLzfb8/LJlZAx9KPmiOtesjZSXP.mp3"
+  },
+  {
+    "voice_id": "dPah2VEoifKnZT37774q",
+    "name": "Knox Dark - Serious, Deep, and Steady",
+    "category": "professional",
+    "labels": {
+      "language": "en",
+      "age": "middle_aged",
+      "gender": "male",
+      "descriptive": "serious",
+      "use_case": "narrative_story",
+      "accent": "american"
+    },
+    "description": "Knox Dark 2 - A serious older man reads in a slow methodical and particular way.",
+    "settings": null,
+    "preview_url": "https://api.us.elevenlabs.io/v1/voices/dPah2VEoifKnZT37774q/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJjdXN0b20iLCJ3b3Jrc3BhY2VfaWQiOiI4NmI2N2NiODE4OWY0NDRkODc3Zjg3MjMzZGJkYWVmNiIsImZpbGVuYW1lIjoibFVGWThLdWF6Q3diSWMzMVhOYU8ubXAzIiwidGltZXN0YW1wIjoxNzkxNDcxNjAwMDAwMDAwfQ%3D%3D"
+  },
+  {
+    "voice_id": "zWSsRd3J6WyZFl12aGMB",
+    "name": "Alan - Soft, Hasty and Warm",
+    "category": "professional",
+    "labels": {
+      "accent": "saint petersburg",
+      "age": "middle_aged",
+      "gender": "male",
+      "use_case": "informative_educational",
+      "descriptive": "classy",
+      "language": "ru"
+    },
+    "description": "Alan - Russian soft calm voice - A soft, calming baritone that inspires trust. Ideal for e-learning, explainer videos, guided courses, and audiobook narration.",
+    "settings": null,
+    "preview_url": "https://storage.googleapis.com/eleven-public-prod/database/workspace/0503dd7104ab481295808d25b9c85603/voices/zWSsRd3J6WyZFl12aGMB/yDoTZXdpirzFPgMCe0YQ.mp3"
+  },
+  {
+    "voice_id": "srN6rA7HPBQZ1WEO6tDP",
+    "name": "Robert - Warm and Friendly",
+    "category": "professional",
+    "labels": {
+      "language": "ru",
+      "age": "middle_aged",
+      "gender": "male",
+      "descriptive": "confident",
+      "use_case": "informative_educational",
+      "accent": "standard"
+    },
+    "description": "Ranger3D.pro - Middle aged Male with a confident tone. Great for Informative content.",
+    "settings": null,
+    "preview_url": "https://api.us.elevenlabs.io/v1/voices/srN6rA7HPBQZ1WEO6tDP/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJjdXN0b20iLCJ3b3Jrc3BhY2VfaWQiOiI5Y2MyM2M1ZmNjZmE0OGZlYTY5OWNkYWNjZWJkYjdjZiIsImZpbGVuYW1lIjoiMGYyMjQxMDEtYjlkZS00M2FiLTliY2ItNDJkMjExZjllYzY3Lm1wMyIsInRpbWVzdGFtcCI6MTc5MTQ3MTYwMDAwMDAwMH0%3D"
+  },
+  {
+    "voice_id": "Vl27Cllkuw8BhyPqus2n",
+    "name": "VASKO - Deep, Warm and Pleasant",
+    "category": "professional",
+    "labels": {
+      "accent": "standard",
+      "age": "middle_aged",
+      "gender": "male",
+      "use_case": "narrative_story",
+      "descriptive": "deep",
+      "language": "ru"
+    },
+    "description": "Deep baritone, pleasant, bright, velvety, kind voice, well suited for many projects: voiceover for vlogs, YouTube, advertising, stories, tales, guides, presentations and others",
+    "settings": null,
+    "preview_url": "https://storage.googleapis.com/eleven-public-prod/database/workspace/701de30aa4d545c6b1afcb3308c39c62/voices/Vl27Cllkuw8BhyPqus2n/nxOC60PdjPZwpCtUPArs.mp3"
+  },
+  {
+    "voice_id": "ogi2DyUAKJb7CEdqqvlU",
+    "name": "Stanislav - Deep, Empathetic and Warm",
+    "category": "professional",
+    "labels": {
+      "language": "ru",
+      "age": "middle_aged",
+      "gender": "male",
+      "descriptive": "deep",
+      "use_case": "narrative_story",
+      "accent": "moscow"
+    },
+    "description": "Stanislav - Male russian voice, deep russian narrator, warm slavic storyteller",
+    "settings": null,
+    "preview_url": "https://storage.googleapis.com/eleven-public-prod/database/workspace/b91c9e2a029545e9b07b630cbe60251b/voices/ogi2DyUAKJb7CEdqqvlU/qfuhMZR5ET7ZCVM9DhVE.mp3"
+  },
+  {
+    "voice_id": "xAVsdcJvD1uegu8lFEE2",
+    "name": "Daniel - Calm, Stoic, and Friendly",
+    "category": "professional",
+    "labels": {
+      "language": "pl",
+      "age": "middle_aged",
+      "gender": "male",
+      "descriptive": "professional",
+      "use_case": "entertainment_tv",
+      "accent": "standard"
+    },
+    "description": "Daniel - Middle-aged male Polish voice with a great accent and quality. Ideal for news, audiobooks and advertising or promotional videos.",
+    "settings": null,
+    "preview_url": "https://storage.googleapis.com/eleven-public-prod/custom/voices/xAVsdcJvD1uegu8lFEE2/PgJalXUgoID4K9pXb6Fd.mp3"
+  },
+  {
+    "voice_id": "Yqxik8v3XlyYOTWnDIVu",
+    "name": "Roque - Documentaries, narrations",
+    "category": "professional",
+    "labels": {
+      "language": "es",
+      "age": "middle-aged",
+      "gender": "male",
+      "use_case": "narrative_story",
+      "descriptive": "confident",
+      "accent": "peninsular"
+    },
+    "description": "Serious, deep, pleasant voice.",
+    "settings": null,
+    "preview_url": "https://storage.googleapis.com/eleven-public-prod/database/workspace/d38e54c673484ff78254aa63ec9c299c/voices/Yqxik8v3XlyYOTWnDIVu/pqQpZ3egvchW1IQ0dDkV.mp3"
+  }
+]
