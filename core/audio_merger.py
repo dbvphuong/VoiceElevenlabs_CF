@@ -41,7 +41,22 @@ def run_ffmpeg(*args: str) -> None:
         *args
     ]
     logger.debug(f"Chạy lệnh FFmpeg: {' '.join(cmd)}")
-    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
+    extra_kwargs = {}
+    if os.name == "nt":
+        # Ẩn hoàn toàn cửa sổ dòng lệnh (CMD đen) khi gọi FFmpeg trên Windows
+        extra_kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= getattr(subprocess, "STARTF_USESHOWWINDOW", 1)
+        startupinfo.wShowWindow = getattr(subprocess, "SW_HIDE", 0)
+        extra_kwargs["startupinfo"] = startupinfo
+
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        **extra_kwargs
+    )
     if result.returncode != 0:
         error_msg = result.stderr.strip() or "Lỗi không xác định từ FFmpeg"
         raise RuntimeError(f"FFmpeg thất bại (mã {result.returncode}): {error_msg}")
