@@ -15,7 +15,7 @@ from PyQt6.QtCore import Qt, pyqtSlot, QPoint
 from PyQt6.QtGui import QColor, QFont, QIcon, QAction
 
 from config.constants import MODEL_IDS
-from config.settings import AppSettings, VoiceTemplate, FolderVoiceProfile
+from config.settings import AppSettings, VoiceTemplate, FolderVoiceProfile, FileVoiceProfile
 from core.file_scanner import collect_txt_files
 from core.text_splitter import split_text_by_sentences
 from ui.settings_dialog import SettingsDialog
@@ -237,7 +237,7 @@ class MainWindow(QMainWindow):
         self.table_files.setColumnWidth(4, 185)
         self.table_files.verticalHeader().setVisible(False)
         self.table_files.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.table_files.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.table_files.setSelectionMode(QTableWidget.SelectionMode.ExtendedSelection)
         self.table_files.cellClicked.connect(self._on_file_selected)
         self.table_files.cellDoubleClicked.connect(self._on_file_double_clicked)
         self.table_files.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -755,30 +755,158 @@ class MainWindow(QMainWindow):
                 self._update_files_table()
                 QMessageBox.information(self, "Đã xóa", f"Đã xóa mẫu giọng '{tmpl.name}'.")
 
+    def _get_current_active_voice_template(self) -> VoiceTemplate:
+        """Lấy cấu hình mẫu giọng đang được chọn/thiết lập trên giao diện tại thời điểm hiện tại."""
+        sel_name = self.settings.selected_voice_template_name
+        tmpl_match = None
+        if sel_name:
+            for vt in self.settings.voice_templates:
+                if vt.name == sel_name:
+                    tmpl_match = vt
+                    break
+
+        vid = self.txt_voice_id.text().strip() or self.settings.voice_id
+        name = tmpl_match.name if tmpl_match else (sel_name or "")
+        if not name:
+            cached = voice_service.get_cached_voice(vid)
+            name = cached.get("name", "Tùy chỉnh") if cached else "Tùy chỉnh"
+
+        return VoiceTemplate(
+            name=name,
+            voice_id=vid,
+            model_index=self.combo_model.currentIndex(),
+            lang_index=self.combo_lang.currentIndex(),
+            speed=self.num_speed.value(),
+            style=self.num_style.value(),
+            stability=self.num_stab.value(),
+            similarity=self.num_sim.value(),
+            speaker_boost=self.chk_boost.isChecked()
+        )
+
+    def _assign_voice_to_file(self, file_path: Path, voice: VoiceTemplate, save: bool = True):
+        """Gán cố định một mẫu giọng cho tệp cụ thể."""
+        target_str = str(file_path.resolve()).lower()
+        self.settings.file_voice_profiles = [
+            f for f in self.settings.file_voice_profiles
+            if str(Path(f.file_path).resolve()).lower() != target_str
+        ]
+        self.settings.file_voice_profiles.append(
+            FileVoiceProfile(
+                file_path=str(file_path.resolve()),
+                voice=voice.model_copy()
+            )
+        )
+        if save:
+            self.settings.save()
+
+    def _has_file_voice(self, file_path: Path) -> bool:
+        """Kiểm tra tệp đã có cấu hình mẫu giọng riêng chưa."""
+        target_str = str(file_path.resolve()).lower()
+        for f in self.settings.file_voice_profiles:
+            try:
+                if str(Path(f.file_path).resolve()).lower() == target_str:
+                    return True
+            except Exception:
+                pass
+        return False
+
+    def _assign_voice_to_multiple_files(self, files: List[Path], template: VoiceTemplate):
+        """Gán mẫu giọng hàng loạt cho nhiều tệp đang chọn."""
+        for f in files:
+            self._assign_voice_to_file(f, template, save=False)
+        self.settings.save()
+        self._update_files_table()
+        msg = (
+            f"Đã gán mẫu giọng '{template.name}' cho {len(files)} tệp."
+            if len(files) > 1
+            else f"Đã gán mẫu giọng '{template.name}' cho tệp {files[0].name}."
+        )
+        QMessageBox.information(self, "Thành công", msg)
+
+    def _remove_multiple_files_from_list(self, files: List[Path]):
+        """Xóa nhiều tệp khỏi danh sách và xóa luôn cấu hình voice riêng."""
+        for f in files:
+            if f in self.file_list:
+                self.file_list.remove(f)
+            target_str = str(f.resolve()).lower()
+            self.settings.file_voice_profiles = [
+                fvp for fvp in self.settings.file_voice_profiles
+                if str(Path(fvp.file_path).resolve()).lower() != target_str
+            ]
+        self.settings.save()
+        self._update_files_table()
+
+    def _prompt_change_voice_for_file(self, file_path: Path):
+        """Mở hộp thoại chọn mẫu giọng nhanh cho tệp khi nhấp đúp vào cột giọng."""
+        options = []
+        for t in self.settings.voice_templates:
+            options.append(f"Mẫu: {t.name}")
+        options.append("Áp dụng thông số giọng hiện tại trên giao diện")
+
+        current_prof = self._resolve_voice_profile_for_file(file_path)
+        cur_opt = f"Mẫu: {current_prof.name}" if f"Mẫu: {current_prof.name}" in options else options[0]
+        cur_idx = options.index(cur_opt) if cur_opt in options else 0
+
+        chosen, ok = QInputDialog.getItem(
+            self,
+            "Đổi mẫu giọng cho tệp",
+            f"Chọn mẫu giọng áp dụng cho tệp:\n{file_path.name}",
+            options,
+            cur_idx,
+            False
+        )
+        if ok and chosen:
+            if chosen == "Áp dụng thông số giọng hiện tại trên giao diện":
+                self._assign_voice_to_file(file_path, self._get_current_active_voice_template(), save=True)
+            else:
+                tmpl_name = chosen.replace("Mẫu: ", "").strip()
+                for t in self.settings.voice_templates:
+                    if t.name == tmpl_name:
+                        self._assign_voice_to_file(file_path, t, save=True)
+                        break
+            self._update_files_table()
+
     def _resolve_voice_profile_for_file(self, file_path: Path) -> VoiceTemplate:
-        """Xác định cấu hình giọng cho từng file theo thư mục hoặc template."""
+        """Xác định cấu hình giọng cho từng file theo tệp, theo thư mục hoặc fallback."""
+        file_resolved = str(file_path.resolve()).lower()
+
+        # 1. Ưu tiên cao nhất: FileVoiceProfiles (mẫu giọng gán cho file tại thời điểm thêm)
+        for fvp in self.settings.file_voice_profiles:
+            if fvp.file_path:
+                try:
+                    if str(Path(fvp.file_path).resolve()).lower() == file_resolved:
+                        return fvp.voice
+                except Exception:
+                    if fvp.file_path.lower() == file_resolved:
+                        return fvp.voice
+
+        # 2. Kiểm tra FolderVoiceProfiles
         file_dir = str(file_path.parent.resolve()).lower()
         for fvp in self.settings.folder_voice_profiles:
             if fvp.folder_path:
-                p_folder = str(Path(fvp.folder_path).resolve()).lower()
-                if file_dir == p_folder or file_dir.startswith(p_folder + "\\") or file_dir.startswith(p_folder + "/"):
-                    return fvp.voice
+                try:
+                    p_folder = str(Path(fvp.folder_path).resolve()).lower()
+                    if file_dir == p_folder or file_dir.startswith(p_folder + "\\") or file_dir.startswith(p_folder + "/"):
+                        return fvp.voice
+                except Exception:
+                    pass
 
+        # 3. Fallback: Nếu file chưa có mẫu riêng thì dùng mẫu đang chọn trên UI
         if self.settings.selected_voice_template_name:
             for vt in self.settings.voice_templates:
                 if vt.name == self.settings.selected_voice_template_name:
                     return vt
 
         return VoiceTemplate(
-            name="Hiện tại",
+            name="Mặc định",
             voice_id=self.settings.voice_id,
-            model_index=self.settings.model_index,
-            lang_index=self.settings.lang_index,
-            speed=self.settings.speed,
-            style=self.settings.style,
-            stability=self.settings.stability,
-            similarity=self.settings.similarity,
-            speaker_boost=self.settings.speaker_boost
+            model_index=self.combo_model.currentIndex(),
+            lang_index=self.combo_lang.currentIndex(),
+            speed=self.num_speed.value(),
+            style=self.num_style.value(),
+            stability=self.num_stab.value(),
+            similarity=self.num_sim.value(),
+            speaker_boost=self.chk_boost.isChecked()
         )
 
     def _get_output_mp3_path(self, file_path: Path) -> Path:
@@ -789,14 +917,23 @@ class MainWindow(QMainWindow):
         return file_path.parent / f"{file_path.stem}{suffix}.mp3"
 
     def _on_file_double_clicked(self, row: int, col: int):
-        """Nhấp đúp chuột vào tệp: Mở file MP3 kết quả nếu có, hoặc mở thư mục."""
-        if 0 <= row < len(self.file_list):
-            file_path = self.file_list[row]
-            out_mp3 = self._get_output_mp3_path(file_path)
-            if out_mp3.exists() and out_mp3.stat().st_size > 0:
-                os.startfile(str(out_mp3))
-            else:
-                os.startfile(str(file_path.parent))
+        """Nhấp đúp chuột vào hàng:
+        - Nếu nhấp cột 'Mẫu giọng áp dụng' (col == 2): Đổi mẫu giọng cho tệp này.
+        - Các cột khác: Mở file MP3 kết quả nếu có, hoặc mở thư mục chứa.
+        """
+        if not (0 <= row < len(self.file_list)):
+            return
+
+        file_path = self.file_list[row]
+        if col == 2:
+            self._prompt_change_voice_for_file(file_path)
+            return
+
+        out_mp3 = self._get_output_mp3_path(file_path)
+        if out_mp3.exists() and out_mp3.stat().st_size > 0:
+            os.startfile(str(out_mp3))
+        else:
+            os.startfile(str(file_path.parent))
 
     def _play_selected_output_file(self):
         """Mở/Phát file MP3 kết quả của tệp đang chọn."""
@@ -827,41 +964,60 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Thông báo", "Chưa có thư mục hoặc tệp nào được chọn.")
 
     def _on_files_context_menu(self, pos: QPoint):
-        """Menu chuột phải trên bảng danh sách tệp."""
-        row = self.table_files.rowAt(pos.y())
-        if row < 0 or row >= len(self.file_list):
+        """Menu chuột phải trên bảng danh sách tệp (hỗ trợ chọn 1 hoặc nhiều tệp)."""
+        selected_rows = sorted(list(set(item.row() for item in self.table_files.selectedItems())))
+        clicked_row = self.table_files.rowAt(pos.y())
+        if clicked_row >= 0 and clicked_row not in selected_rows:
+            selected_rows = [clicked_row]
+        if not selected_rows:
             return
 
-        file_path = self.file_list[row]
+        target_files = [self.file_list[r] for r in selected_rows if 0 <= r < len(self.file_list)]
+        if not target_files:
+            return
+
+        file_path = target_files[0]
         out_mp3 = self._get_output_mp3_path(file_path)
         out_exists = out_mp3.exists() and out_mp3.stat().st_size > 0
 
         menu = QMenu(self)
 
-        # 1. Phát/Mở file MP3 kết quả nếu đã có
-        if out_exists:
+        # 1. Phát/Mở file MP3 kết quả (nếu chọn 1 file và đã có)
+        if len(target_files) == 1 and out_exists:
             action_play = menu.addAction(f"▶ Mở / Nghe file MP3 ({out_mp3.name})")
             action_play.triggered.connect(lambda: os.startfile(str(out_mp3)))
             menu.addSeparator()
 
-        # 2. Gán mẫu giọng cho thư mục chứa file này
-        sub_menu_assign = menu.addMenu(f"📁 Gán mẫu giọng cho thư mục: {file_path.parent.name}")
+        # 2. Đổi mẫu giọng cho (các) tệp đang chọn
+        label_target = f"tệp '{file_path.name}'" if len(target_files) == 1 else f"{len(target_files)} tệp đang chọn"
+        sub_menu_voice = menu.addMenu(f"🎙 Đổi mẫu giọng cho {label_target}")
+        for tmpl in self.settings.voice_templates:
+            action = sub_menu_voice.addAction(f"Mẫu: {tmpl.name}")
+            action.triggered.connect(lambda checked, t=tmpl, flist=target_files: self._assign_voice_to_multiple_files(flist, t))
+
+        action_curr = sub_menu_voice.addAction("Áp dụng thông số giọng hiện tại trên giao diện")
+        action_curr.triggered.connect(lambda checked, flist=target_files: self._assign_voice_to_multiple_files(flist, self._get_current_active_voice_template()))
+
+        menu.addSeparator()
+
+        # 3. Gán mẫu giọng cho thư mục chứa file
+        sub_menu_assign = menu.addMenu(f"📁 Gán mẫu giọng cho toàn bộ thư mục: {file_path.parent.name}")
         for tmpl in self.settings.voice_templates:
             action = sub_menu_assign.addAction(f"Áp dụng: {tmpl.name}")
             action.triggered.connect(lambda checked, t=tmpl, p=file_path.parent: self._assign_folder_template(p, t))
 
-        action_clear_folder = sub_menu_assign.addAction("Hủy gán riêng (Dùng mẫu chung)")
+        action_clear_folder = sub_menu_assign.addAction("Hủy gán riêng thư mục (Dùng mẫu tệp/chung)")
         action_clear_folder.triggered.connect(lambda: self._clear_folder_template(file_path.parent))
 
         menu.addSeparator()
 
-        # 3. Mở thư mục
+        # 4. Mở thư mục
         action_open_dir = menu.addAction("📂 Mở thư mục chứa file trong Explorer")
         action_open_dir.triggered.connect(lambda: os.startfile(str(file_path.parent)))
 
-        # 4. Xóa file khỏi danh sách
-        action_remove = menu.addAction("🗑 Xóa file này khỏi danh sách")
-        action_remove.triggered.connect(lambda: self._remove_file_from_list(row))
+        # 5. Xóa file khỏi danh sách
+        action_remove = menu.addAction(f"🗑 Xóa {label_target} khỏi danh sách")
+        action_remove.triggered.connect(lambda: self._remove_multiple_files_from_list(target_files))
 
         menu.exec(self.table_files.viewport().mapToGlobal(pos))
 
@@ -918,24 +1074,47 @@ class MainWindow(QMainWindow):
                 self.settings.folders.append(folder)
                 self.settings.folder = folder
                 self.settings.save()
-            self._rescan_files()
+            active_voice = self._get_current_active_voice_template()
+            new_files = collect_txt_files(
+                folders=[folder],
+                include_subfolders=self.chk_subfolders.isChecked()
+            )
+            for f in new_files:
+                p = Path(f).resolve()
+                if p not in self.file_list:
+                    self.file_list.append(p)
+                if not self._has_file_voice(p):
+                    self._assign_voice_to_file(p, active_voice, save=False)
+            self.settings.save()
+            self._update_files_table()
 
     def _add_file(self):
         files, _ = QFileDialog.getOpenFileNames(self, "Chọn tệp văn bản .txt", "", "Text Files (*.txt)")
         if files:
+            active_voice = self._get_current_active_voice_template()
             for f in files:
                 p = Path(f).resolve()
                 if p not in self.file_list:
                     self.file_list.append(p)
+                # Mỗi lần thêm file lẻ, gán mẫu giọng tại thời điểm thêm
+                self._assign_voice_to_file(p, active_voice, save=False)
+            self.settings.save()
             self._update_files_table()
 
     def _rescan_files(self):
         folders = self.settings.folders if self.settings.folders else ([self.settings.folder] if self.settings.folder else [])
         if folders:
-            self.file_list = collect_txt_files(
+            scanned = collect_txt_files(
                 folders=folders,
                 include_subfolders=self.chk_subfolders.isChecked()
             )
+            active_voice = self._get_current_active_voice_template()
+            for p in scanned:
+                if p not in self.file_list:
+                    self.file_list.append(p)
+                if not self._has_file_voice(p):
+                    self._assign_voice_to_file(p, active_voice, save=False)
+            self.settings.save()
         self._update_files_table()
 
     def _get_file_chunks(self, file_idx: int, file_path: Path) -> List[dict]:
@@ -988,7 +1167,14 @@ class MainWindow(QMainWindow):
             # Cột 2: Mẫu giọng áp dụng
             voice_prof = self._resolve_voice_profile_for_file(file_path)
             tmpl_name = voice_prof.name if voice_prof.name else (self.settings.selected_voice_template_name or "Mặc định")
-            self.table_files.setItem(row, 2, QTableWidgetItem(f"🎙 {tmpl_name}"))
+            item_voice = QTableWidgetItem(f"🎙 {tmpl_name}")
+            item_voice.setToolTip(
+                f"Mẫu giọng: {tmpl_name}\n"
+                f"Voice ID: {voice_prof.voice_id}\n"
+                f"Tốc độ: {voice_prof.speed}x | Ổn định: {voice_prof.stability}% | Tương đồng: {voice_prof.similarity}%\n"
+                f"(Nhấp đúp chuột hoặc click chuột phải để đổi mẫu giọng)"
+            )
+            self.table_files.setItem(row, 2, item_voice)
 
             # Cột 3 & 4: Tiến độ & Tệp đầu ra (Output)
             chunks = self._get_file_chunks(idx, file_path)

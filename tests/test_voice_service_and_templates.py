@@ -4,7 +4,7 @@ import pytest
 import tempfile
 from pathlib import Path
 
-from config.settings import AppSettings, VoiceTemplate, FolderVoiceProfile
+from config.settings import AppSettings, VoiceTemplate, FolderVoiceProfile, FileVoiceProfile
 from network.voice_service import VoiceService, DEFAULT_PREMADE_VOICES
 from pipeline.orchestrator import Orchestrator
 
@@ -105,3 +105,41 @@ def test_orchestrator_voice_profile_resolution():
         prof_root = orchestrator.get_voice_profile_for_file(file_root)
         assert prof_root.voice_id == "global_voice_id"
         assert prof_root.speed == 1.0
+
+def test_orchestrator_file_voice_profile_priority():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        file1 = tmp_path / "1.Ba Lan.txt"
+        file2 = tmp_path / "27.Anh.txt"
+        file1.write_text("Text 1", encoding="utf-8")
+        file2.write_text("Text 2", encoding="utf-8")
+
+        # Cấu hình:
+        # file1 gán giọng Rachel (lúc thêm file 1)
+        # file2 gán giọng Vũ Trụ (lúc thêm file 2)
+        settings = AppSettings(
+            selected_voice_template_name="Default Template",
+            file_voice_profiles=[
+                FileVoiceProfile(
+                    file_path=str(file1),
+                    voice=VoiceTemplate(name="Rachel (Nữ)", voice_id="rachel_id", speed=0.9)
+                ),
+                FileVoiceProfile(
+                    file_path=str(file2),
+                    voice=VoiceTemplate(name="Vũ trụ lượng tử", voice_id="vu_tru_id", speed=0.95)
+                ),
+            ]
+        )
+
+        orchestrator = Orchestrator(settings=settings)
+
+        prof1 = orchestrator.get_voice_profile_for_file(file1)
+        assert prof1.name == "Rachel (Nữ)"
+        assert prof1.voice_id == "rachel_id"
+        assert prof1.speed == 0.9
+
+        prof2 = orchestrator.get_voice_profile_for_file(file2)
+        assert prof2.name == "Vũ trụ lượng tử"
+        assert prof2.voice_id == "vu_tru_id"
+        assert prof2.speed == 0.95
+

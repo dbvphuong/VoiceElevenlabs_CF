@@ -70,24 +70,44 @@ class Orchestrator:
         return input_file.parent / out_name
 
     def get_voice_profile_for_file(self, file_path: Path) -> VoiceTemplate:
-        """Xác định VoiceTemplate cho file: ưu tiên FolderVoiceProfiles, sau đó đến Selected Template, rồi đến thông số chung."""
-        file_dir = str(file_path.parent.resolve()).lower()
+        """Xác định VoiceTemplate cho file:
+        1. Ưu tiên cao nhất: FileVoiceProfiles (mẫu giọng gán riêng cho file tại thời điểm thêm).
+        2. Ưu tiên kế: FolderVoiceProfiles (mẫu giọng gán riêng cho thư mục).
+        3. Ưu tiên kế: Selected Voice Template.
+        4. Sử dụng cấu hình chung của settings.
+        """
+        file_resolved = str(file_path.resolve()).lower()
 
-        # 1. Kiểm tra FolderVoiceProfiles
+        # 1. Kiểm tra FileVoiceProfiles
+        for fvp in self.settings.file_voice_profiles:
+            if fvp.file_path:
+                try:
+                    if str(Path(fvp.file_path).resolve()).lower() == file_resolved:
+                        return fvp.voice
+                except Exception:
+                    if fvp.file_path.lower() == file_resolved:
+                        return fvp.voice
+
+        # 2. Kiểm tra FolderVoiceProfiles
+        file_dir = str(file_path.parent.resolve()).lower()
         for fvp in self.settings.folder_voice_profiles:
             if fvp.folder_path:
-                p_folder = str(Path(fvp.folder_path).resolve()).lower()
-                if file_dir == p_folder or file_dir.startswith(p_folder + "\\") or file_dir.startswith(p_folder + "/"):
-                    return fvp.voice
+                try:
+                    p_folder = str(Path(fvp.folder_path).resolve()).lower()
+                    if file_dir == p_folder or file_dir.startswith(p_folder + "\\") or file_dir.startswith(p_folder + "/"):
+                        return fvp.voice
+                except Exception:
+                    pass
 
-        # 2. Kiểm tra Selected Voice Template
+        # 3. Kiểm tra Selected Voice Template
         if self.settings.selected_voice_template_name:
             for vt in self.settings.voice_templates:
                 if vt.name == self.settings.selected_voice_template_name:
                     return vt
 
-        # 3. Sử dụng cấu hình chung của settings
+        # 4. Sử dụng cấu hình chung của settings
         return VoiceTemplate(
+            name="Mặc định",
             voice_id=self.settings.voice_id,
             model_index=self.settings.model_index,
             lang_index=self.settings.lang_index,

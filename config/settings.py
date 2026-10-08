@@ -25,6 +25,12 @@ class FolderVoiceProfile(BaseModel):
     folder_path: str = Field(default="", alias="FolderPath")
     voice: VoiceTemplate = Field(default_factory=VoiceTemplate, alias="Voice")
 
+class FileVoiceProfile(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    file_path: str = Field(default="", alias="FilePath")
+    voice: VoiceTemplate = Field(default_factory=VoiceTemplate, alias="Voice")
+
 class AppSettings(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -41,6 +47,7 @@ class AppSettings(BaseModel):
     voice_templates: List[VoiceTemplate] = Field(default_factory=list, alias="VoiceTemplates")
     selected_voice_template_name: str = Field(default="", alias="SelectedVoiceTemplateName")
     folder_voice_profiles: List[FolderVoiceProfile] = Field(default_factory=list, alias="FolderVoiceProfiles")
+    file_voice_profiles: List[FileVoiceProfile] = Field(default_factory=list, alias="FileVoiceProfiles")
     
     static_proxies: str = Field(default="", alias="StaticProxies")
     rotating_proxies: str = Field(default="", alias="RotatingProxies")

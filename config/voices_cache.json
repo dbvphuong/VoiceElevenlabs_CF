@@ -16,13 +16,13 @@
     "name": "Frederick Surrey - vũ trụ",
     "category": "professional",
     "labels": {
+      "accent": "british",
       "locale": "en-GB",
       "age": "middle_aged",
-      "language": "en",
-      "descriptive": "calm",
-      "accent": "british",
       "gender": "male",
-      "use_case": "narrative_story"
+      "use_case": "narrative_story",
+      "descriptive": "calm",
+      "language": "en"
     },
     "description": "Professional, calm, well spoken British narrator full of intrigue and wonder. Suitable for Nature, Science, Mystery & History documentaries or audio books & narration projects that need a smooth & velvety tone.",
     "settings": {
@@ -57,8 +57,8 @@
       "language": "en",
       "age": "middle_aged",
       "gender": "male",
-      "descriptive": "deep",
       "use_case": "narrative_story",
+      "descriptive": "deep",
       "accent": "american"
     },
     "description": "Distinct tone, deep pitch, engaging long-form voice-over and narration.",
@@ -95,7 +95,7 @@
     },
     "description": "Warm resonance that instantly captivates listeners.",
     "settings": null,
-    "preview_url": "https://api.us.elevenlabs.io/v1/voices/JBFqnCBsd6RMkjVDRZzb/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJwcmVtYWRlIiwiZmlsZW5hbWUiOiJlNjIwNmQxYS0wNzIxLTQ3ODctYWFmYi0wNmE2ZTcwNWNhYzUubXAzIiwidGltZXN0YW1wIjoxNzkxNDcxNjAwMDAwMDAwfQ%3D%3D"
+    "preview_url": "https://api.us.elevenlabs.io/v1/voices/JBFqnCBsd6RMkjVDRZzb/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJwcmVtYWRlIiwiZmlsZW5hbWUiOiJlNjIwNmQxYS0wNzIxLTQ3ODctYWFmYi0wNmE2ZTcwNWNhYzUubXAzIiwidGltZXN0YW1wIjoxNzkxNDg2MDAwMDAwMDAwfQ%3D%3D"
   },
   {
     "voice_id": "CwhRBWXzGAHq8TQ4Fs17",
@@ -127,7 +127,7 @@
     },
     "description": "This young adult female voice delivers sunny enthusiasm with a quirky attitude.",
     "settings": null,
-    "preview_url": "https://api.us.elevenlabs.io/v1/voices/FGY2WhTYpPnrIDTdsKH5/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJwcmVtYWRlIiwiZmlsZW5hbWUiOiI2NzM0MTc1OS1hZDA4LTQxYTUtYmU2ZS1kZTEyZmU0NDg2MTgubXAzIiwidGltZXN0YW1wIjoxNzkxNDcxNjAwMDAwMDAwfQ%3D%3D"
+    "preview_url": "https://api.us.elevenlabs.io/v1/voices/FGY2WhTYpPnrIDTdsKH5/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJwcmVtYWRlIiwiZmlsZW5hbWUiOiI2NzM0MTc1OS1hZDA4LTQxYTUtYmU2ZS1kZTEyZmU0NDg2MTgubXAzIiwidGltZXN0YW1wIjoxNzkxNDg2MDAwMDAwMDAwfQ%3D%3D"
   },
   {
     "voice_id": "IKne3meq5aSn9XLyUdCD",
@@ -143,7 +143,7 @@
     },
     "description": "A young Australian male with a confident and energetic voice.",
     "settings": null,
-    "preview_url": "https://api.us.elevenlabs.io/v1/voices/IKne3meq5aSn9XLyUdCD/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJwcmVtYWRlIiwiZmlsZW5hbWUiOiIxMDJkZTZmMi0yMmVkLTQzZTAtYTFmMS0xMTFmYTc1YzU0ODEubXAzIiwidGltZXN0YW1wIjoxNzkxNDcxNjAwMDAwMDAwfQ%3D%3D"
+    "preview_url": "https://api.us.elevenlabs.io/v1/voices/IKne3meq5aSn9XLyUdCD/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJwcmVtYWRlIiwiZmlsZW5hbWUiOiIxMDJkZTZmMi0yMmVkLTQzZTAtYTFmMS0xMTFmYTc1YzU0ODEubXAzIiwidGltZXN0YW1wIjoxNzkxNDg2MDAwMDAwMDAwfQ%3D%3D"
   },
   {
     "voice_id": "N2lVS1w4EtoT3dr4eOWO",
@@ -334,7 +334,7 @@
     },
     "description": "Middle-aged man with a resonant and comforting tone. Great for narrations and advertisements.",
     "settings": null,
-    "preview_url": "https://api.us.elevenlabs.io/v1/voices/nPczCjzI2devNBz1zQrb/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJwcmVtYWRlIiwiZmlsZW5hbWUiOiIyZGQzZTcyYy00ZmQzLTQyZjEtOTNlYS1hYmM1ZDRlNWFhMWQubXAzIiwidGltZXN0YW1wIjoxNzkxNDcxNjAwMDAwMDAwfQ%3D%3D"
+    "preview_url": "https://api.us.elevenlabs.io/v1/voices/nPczCjzI2devNBz1zQrb/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJwcmVtYWRlIiwiZmlsZW5hbWUiOiIyZGQzZTcyYy00ZmQzLTQyZjEtOTNlYS1hYmM1ZDRlNWFhMWQubXAzIiwidGltZXN0YW1wIjoxNzkxNDg2MDAwMDAwMDAwfQ%3D%3D"
   },
   {
     "voice_id": "onwK4e9ZLuTAKqWW03F9",
@@ -350,7 +350,7 @@
     },
     "description": "A strong voice perfect for delivering a professional broadcast or news story.",
     "settings": null,
-    "preview_url": "https://api.us.elevenlabs.io/v1/voices/onwK4e9ZLuTAKqWW03F9/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJwcmVtYWRlIiwiZmlsZW5hbWUiOiI3ZWVlMDIzNi0xYTcyLTRiODYtYjMwMy01ZGNhZGMwMDdiYTkubXAzIiwidGltZXN0YW1wIjoxNzkxNDcxNjAwMDAwMDAwfQ%3D%3D"
+    "preview_url": "https://api.us.elevenlabs.io/v1/voices/onwK4e9ZLuTAKqWW03F9/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJwcmVtYWRlIiwiZmlsZW5hbWUiOiI3ZWVlMDIzNi0xYTcyLTRiODYtYjMwMy01ZGNhZGMwMDdiYTkubXAzIiwidGltZXN0YW1wIjoxNzkxNDg2MDAwMDAwMDAwfQ%3D%3D"
   },
   {
     "voice_id": "pFZP5JQG7iQjIQuC4Bku",
@@ -389,17 +389,17 @@
     "name": "El Faraon - Deep, Powerful and Peaceful",
     "category": "professional",
     "labels": {
+      "locale": "es-CO",
       "accent": "colombian",
       "age": "middle_aged",
       "gender": "male",
-      "locale": "es-CO",
       "use_case": "narrative_story",
       "descriptive": "deep",
       "language": "es"
     },
     "description": "c huệ dùng",
     "settings": null,
-    "preview_url": "https://api.us.elevenlabs.io/v1/voices/W1hAcdh0RNsPYUA7fkJh/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJjdXN0b20iLCJ3b3Jrc3BhY2VfaWQiOiIxNWJhYTU3YjBmZDg0ZGJjOTA4MWUzZDdlZjE0Y2Q2MCIsImZpbGVuYW1lIjoibFU4NnFORks5dE9aSE43SDZxdFcubXAzIiwidGltZXN0YW1wIjoxNzkxNDcxNjAwMDAwMDAwfQ%3D%3D"
+    "preview_url": "https://api.us.elevenlabs.io/v1/voices/W1hAcdh0RNsPYUA7fkJh/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJjdXN0b20iLCJ3b3Jrc3BhY2VfaWQiOiIxNWJhYTU3YjBmZDg0ZGJjOTA4MWUzZDdlZjE0Y2Q2MCIsImZpbGVuYW1lIjoibFU4NnFORks5dE9aSE43SDZxdFcubXAzIiwidGltZXN0YW1wIjoxNzkxNDg2MDAwMDAwMDAwfQ%3D%3D"
   },
   {
     "voice_id": "UQoLnPXvf18gaKpLzfb8",
@@ -409,8 +409,8 @@
       "language": "en",
       "age": "middle_aged",
       "gender": "male",
-      "descriptive": "calm",
       "use_case": "informative_educational",
+      "descriptive": "calm",
       "accent": "american"
     },
     "description": "Sawyer - Business Book Narrator - Upbeat, professional middle-aged male voice with a slight twinge of enthusiasm. Perfect for narrating business or motivational audiobooks.",
@@ -425,13 +425,13 @@
       "language": "en",
       "age": "middle_aged",
       "gender": "male",
-      "descriptive": "serious",
       "use_case": "narrative_story",
+      "descriptive": "serious",
       "accent": "american"
     },
     "description": "Knox Dark 2 - A serious older man reads in a slow methodical and particular way.",
     "settings": null,
-    "preview_url": "https://api.us.elevenlabs.io/v1/voices/dPah2VEoifKnZT37774q/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJjdXN0b20iLCJ3b3Jrc3BhY2VfaWQiOiI4NmI2N2NiODE4OWY0NDRkODc3Zjg3MjMzZGJkYWVmNiIsImZpbGVuYW1lIjoibFVGWThLdWF6Q3diSWMzMVhOYU8ubXAzIiwidGltZXN0YW1wIjoxNzkxNDcxNjAwMDAwMDAwfQ%3D%3D"
+    "preview_url": "https://api.us.elevenlabs.io/v1/voices/dPah2VEoifKnZT37774q/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJjdXN0b20iLCJ3b3Jrc3BhY2VfaWQiOiI4NmI2N2NiODE4OWY0NDRkODc3Zjg3MjMzZGJkYWVmNiIsImZpbGVuYW1lIjoibFVGWThLdWF6Q3diSWMzMVhOYU8ubXAzIiwidGltZXN0YW1wIjoxNzkxNDg2MDAwMDAwMDAwfQ%3D%3D"
   },
   {
     "voice_id": "zWSsRd3J6WyZFl12aGMB",
@@ -457,13 +457,13 @@
       "language": "ru",
       "age": "middle_aged",
       "gender": "male",
-      "descriptive": "confident",
       "use_case": "informative_educational",
+      "descriptive": "confident",
       "accent": "standard"
     },
     "description": "Ranger3D.pro - Middle aged Male with a confident tone. Great for Informative content.",
     "settings": null,
-    "preview_url": "https://api.us.elevenlabs.io/v1/voices/srN6rA7HPBQZ1WEO6tDP/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJjdXN0b20iLCJ3b3Jrc3BhY2VfaWQiOiI5Y2MyM2M1ZmNjZmE0OGZlYTY5OWNkYWNjZWJkYjdjZiIsImZpbGVuYW1lIjoiMGYyMjQxMDEtYjlkZS00M2FiLTliY2ItNDJkMjExZjllYzY3Lm1wMyIsInRpbWVzdGFtcCI6MTc5MTQ3MTYwMDAwMDAwMH0%3D"
+    "preview_url": "https://api.us.elevenlabs.io/v1/voices/srN6rA7HPBQZ1WEO6tDP/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJjdXN0b20iLCJ3b3Jrc3BhY2VfaWQiOiI5Y2MyM2M1ZmNjZmE0OGZlYTY5OWNkYWNjZWJkYjdjZiIsImZpbGVuYW1lIjoiMGYyMjQxMDEtYjlkZS00M2FiLTliY2ItNDJkMjExZjllYzY3Lm1wMyIsInRpbWVzdGFtcCI6MTc5MTQ4NjAwMDAwMDAwMH0%3D"
   },
   {
     "voice_id": "Vl27Cllkuw8BhyPqus2n",
@@ -489,8 +489,8 @@
       "language": "ru",
       "age": "middle_aged",
       "gender": "male",
-      "descriptive": "deep",
       "use_case": "narrative_story",
+      "descriptive": "deep",
       "accent": "moscow"
     },
     "description": "Stanislav - Male russian voice, deep russian narrator, warm slavic storyteller",
@@ -505,8 +505,8 @@
       "language": "pl",
       "age": "middle_aged",
       "gender": "male",
-      "descriptive": "professional",
       "use_case": "entertainment_tv",
+      "descriptive": "professional",
       "accent": "standard"
     },
     "description": "Daniel - Middle-aged male Polish voice with a great accent and quality. Ideal for news, audiobooks and advertising or promotional videos.",
