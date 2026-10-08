@@ -148,6 +148,7 @@ class MainWindow(QMainWindow):
         row_tmpl.addWidget(QLabel("Model:"))
         self.combo_model = QComboBox()
         self.combo_model.addItems(MODEL_IDS)
+        self.combo_model.currentIndexChanged.connect(self._on_model_changed)
         row_tmpl.addWidget(self.combo_model, 2)
 
         row_tmpl.addWidget(QLabel("Ngôn ngữ:"))
@@ -673,6 +674,19 @@ class MainWindow(QMainWindow):
 
             self._save_ui_to_settings()
             self._update_files_table()
+
+    def _on_model_changed(self, index: int):
+        """Cảnh báo khi người dùng chọn Model v4 mà không có gói trả phí."""
+        if 0 <= index < len(MODEL_IDS):
+            m_id = MODEL_IDS[index]
+            if m_id in ("eleven_v4", "eleven_v4_turbo"):
+                QMessageBox.warning(
+                    self,
+                    "Lưu ý Model v4",
+                    f"Mô hình '{m_id}' yêu cầu tài khoản trả phí (Paid Plan) kèm API Key của ElevenLabs.\n\n"
+                    "Cơ chế tạo miễn phí (Free) qua hCaptcha không hỗ trợ Model v4.\n"
+                    "👉 Nếu dùng Free, vui lòng chọn 'eleven_multilingual_v2' (chuẩn nhất cho tiếng Việt/Anh) hoặc 'eleven_flash_v2' / 'eleven_turbo_v2'."
+                )
 
     def _on_save_template_clicked(self):
         """Lưu toàn bộ thông số giọng hiện tại thành mẫu mới hoặc cập nhật mẫu đã có."""

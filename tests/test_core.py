@@ -70,6 +70,14 @@ def test_tts_result_from_error():
     res3 = TtsResult.from_error(500, "Internal Server Error")
     assert res3.retryable is True
 
+    # 4. paid_plan_required (Model v4 or paid plan required)
+    res4 = TtsResult.from_error(402, json.dumps({
+        "detail": {"code": "paid_plan_required", "status": "payment_required"}
+    }))
+    assert res4.is_worker_stopping_error is True
+    assert "Paid Plan Required" in res4.message
+
+
 def test_file_scanner():
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)

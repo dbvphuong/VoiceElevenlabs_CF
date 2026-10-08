@@ -53,7 +53,16 @@ class TtsResult:
                 rotate_proxy=True
             )
 
-        # 2. Hết Quota của tài khoản
+        # 2. Yêu cầu gói trả phí (Model v4 hoặc tính năng trả phí)
+        if code == "paid_plan_required" or status_code == 402:
+            return cls(
+                success=False,
+                retryable=False,
+                message="Model này (Model v4) yêu cầu tài khoản trả phí ElevenLabs (Paid Plan Required). Không hỗ trợ tạo Free.",
+                is_worker_stopping_error=True
+            )
+
+        # 2b. Hết Quota của tài khoản
         if status == "quota_exceeded":
             return cls(
                 success=False,
