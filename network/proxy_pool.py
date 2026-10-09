@@ -172,7 +172,7 @@ class ProxyPool:
         """Đảm bảo proxy key có IP hoạt động (tự gọi API TopProxy nếu là API key)."""
         if key.is_direct_proxy:
             parsed = parse_proxy_string(key.key)
-            exit_ip = get_exit_ip(parsed["curl_url"], timeout=5.0) if parsed else None
+            exit_ip = get_exit_ip(parsed["curl_url"], timeout=8.0) if parsed else None
             key.current_exit_ip = exit_ip
             return exit_ip is not None
 
@@ -181,7 +181,9 @@ class ProxyPool:
             if new_ip:
                 key.current_ip = new_ip
                 parsed_new = parse_proxy_string(new_ip)
-                exit_ip = get_exit_ip(parsed_new["curl_url"], timeout=5.0) if parsed_new else None
+                # Cho proxy 0.5s để server TopProxy sẵn sàng
+                await asyncio.sleep(0.5)
+                exit_ip = get_exit_ip(parsed_new["curl_url"], timeout=8.0) if parsed_new else None
                 key.current_exit_ip = exit_ip
                 key.last_observed_exit_ip = exit_ip
                 if not exit_ip:
@@ -196,7 +198,7 @@ class ProxyPool:
         # Nếu đã có IP nhưng chưa kiểm tra exit IP hoặc cần xác minh
         if key.current_ip and not key.current_exit_ip:
             parsed = parse_proxy_string(key.current_ip)
-            exit_ip = get_exit_ip(parsed["curl_url"], timeout=5.0) if parsed else None
+            exit_ip = get_exit_ip(parsed["curl_url"], timeout=8.0) if parsed else None
             key.current_exit_ip = exit_ip
             if not exit_ip:
                 logger.warning(f"Proxy {key.current_ip} không phản hồi mạng, hủy IP này.")

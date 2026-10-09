@@ -45,7 +45,7 @@ class TtsResult:
             pass
 
         # 1. Hết lượt demo trên IP hiện tại -> cần xoay Proxy ngay
-        if code == "sign_in_required":
+        if code == "sign_in_required" or "sign_in_required" in body:
             return cls(
                 success=False,
                 retryable=True,
@@ -63,7 +63,7 @@ class TtsResult:
             )
 
         # 2b. Hết Quota của tài khoản
-        if status == "quota_exceeded":
+        if status == "quota_exceeded" or "quota_exceeded" in body:
             return cls(
                 success=False,
                 retryable=False,
@@ -71,13 +71,13 @@ class TtsResult:
                 is_worker_stopping_error=True
             )
 
-        # 3. ElevenLabs phát hiện hoạt động bất thường (WAF/Anti-bot)
-        if status == "detected_unusual_activity":
+        # 3. ElevenLabs phát hiện hoạt động bất thường (WAF/Anti-bot trên IP hiện tại)
+        if status == "detected_unusual_activity" or "detected_unusual_activity" in body:
             return cls(
                 success=False,
-                retryable=False,
-                message="ElevenLabs từ chối Free Tier do hoạt động bất thường.",
-                is_worker_stopping_error=True,
+                retryable=True,
+                message="ElevenLabs từ chối Free Tier do hoạt động bất thường (cần xoay proxy).",
+                is_worker_stopping_error=False,
                 rotate_proxy=True
             )
 

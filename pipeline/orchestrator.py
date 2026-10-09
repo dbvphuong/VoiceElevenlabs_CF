@@ -297,7 +297,7 @@ class Orchestrator:
                 await task_queue.put(t)
 
             failed_this_round: List[ChunkTask] = []
-            max_attempts_per_chunk = 3 if round_idx == 0 else 1
+            max_attempts_per_chunk = 3 if round_idx == 0 else 2
 
             # Tạo danh sách Worker
             workers = [
@@ -314,26 +314,24 @@ class Orchestrator:
             ]
 
             async def worker_loop(w: PipelineWorker):
-                while not self.cancel_event.is_set() and not task_queue.empty():
+                while not self.cancel_event.is_set():
                     try:
                         task = task_queue.get_nowait()
                     except asyncio.QueueEmpty:
                         break
 
-                    success = await w.process_chunk(
-                        task,
-                        max_attempts=max_attempts_per_chunk,
-                        retry_round=round_idx,
-                        cancel_event=self.cancel_event
-                    )
-                    if not success:
-                        # Gặp lỗi chặn nghiêm trọng -> trả task lại hàng đợi lỗi
-                        failed_this_round.append(task)
-                        break
+                    try:
+                        await w.process_chunk(
+                            task,
+                            max_attempts=max_attempts_per_chunk,
+                            retry_round=round_idx,
+                            cancel_event=self.cancel_event
+                        )
+                    except Exception as e:
+                        logger.error(f"[Worker {w.worker_id}] Lỗi ngoại lệ khi xử lý chunk {task.chunk_index + 1}: {e}")
 
-                    # Nếu sau max_attempts mà file chưa tạo được
-                    if not Path(task.chunk_mp3_path).exists() or Path(task.chunk_mp3_path).stat().st_size == 0:
-                        failed_this_round.append(task)
+                    if self.cancel_event.is_set():
+                        break
 
             # Chạy tất cả worker đồng thời
             worker_tasks = [asyncio.create_task(worker_loop(w)) for w in workers]
@@ -341,9 +339,27 @@ class Orchestrator:
 
             # Đóng tài nguyên của các worker
             for w in workers:
-                await w.close()
+                try:
+                    await w.close()
+                except Exception:
+                    pass
 
-            current_tasks = failed_this_round
+            if self.cancel_event.is_set():
+                break
+
+            # Kiểm tra trạng thái thực tế trên đĩa: giữ lại tất cả các task CHƯA có file MP3 hợp lệ
+            current_tasks = [
+                t for t in initial_tasks
+                if not (Path(t.chunk_mp3_path).exists() and Path(t.chunk_mp3_path).stat().st_size > 0)
+            ]
+
+            if not current_tasks:
+                logger.success("Tất cả các đoạn âm thanh đã được tạo thành công!")
+                break
+
+            if round_idx < MAX_RETRY_ROUNDS:
+                logger.info(f"Nghỉ 3 giây trước vòng xử lý lại tiếp theo...")
+                await asyncio.sleep(3)
 
         # Đợi toàn bộ các tiến trình ghép MP3 hoàn tất
         if self._pending_merge_tasks:

@@ -12,7 +12,8 @@ from PyQt6.QtWidgets import (
     QApplication
 )
 from PyQt6.QtCore import Qt, pyqtSlot, QPoint
-from PyQt6.QtGui import QColor, QFont, QIcon, QAction
+from PyQt6.QtGui import QColor, QFont, QIcon, QAction, QKeySequence, QShortcut
+from loguru import logger
 
 from config.constants import MODEL_IDS
 from config.settings import AppSettings, VoiceTemplate, FolderVoiceProfile, FileVoiceProfile
@@ -209,6 +210,15 @@ class MainWindow(QMainWindow):
         btn_add_file.clicked.connect(self._add_file)
         file_actions.addWidget(btn_add_file)
 
+        self.btn_delete_file = QPushButton("🗑 Xóa row")
+        self.btn_delete_file.setToolTip("Xóa các hàng tệp .txt đã chọn khỏi danh sách (Phím tắt: Delete / Backspace)")
+        self.btn_delete_file.setStyleSheet(
+            "color: #DC2626; font-weight: bold; padding: 4px 10px; border: 1px solid #FECACA; "
+            "background-color: #FEF2F2; border-radius: 4px;"
+        )
+        self.btn_delete_file.clicked.connect(self._delete_selected_files)
+        file_actions.addWidget(self.btn_delete_file)
+
         self.chk_subfolders = QCheckBox("Gồm folder con")
         self.chk_subfolders.setChecked(self.settings.scan_subfolders)
         self.chk_subfolders.toggled.connect(self._on_subfolders_toggled)
@@ -241,8 +251,19 @@ class MainWindow(QMainWindow):
         self.table_files.setSelectionMode(QTableWidget.SelectionMode.ExtendedSelection)
         self.table_files.cellClicked.connect(self._on_file_selected)
         self.table_files.cellDoubleClicked.connect(self._on_file_double_clicked)
+        self.table_files.currentCellChanged.connect(self._on_current_cell_changed)
         self.table_files.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.table_files.customContextMenuRequested.connect(self._on_files_context_menu)
+        self.table_files.keyPressEvent = self._table_files_key_press
+
+        shortcut_del = QShortcut(QKeySequence(Qt.Key.Key_Delete), self.table_files)
+        shortcut_del.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        shortcut_del.activated.connect(self._delete_selected_files)
+
+        shortcut_bksp = QShortcut(QKeySequence(Qt.Key.Key_Backspace), self.table_files)
+        shortcut_bksp.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        shortcut_bksp.activated.connect(self._delete_selected_files)
+
         left_layout.addWidget(self.table_files)
 
         splitter.addWidget(left_box)
@@ -837,18 +858,132 @@ class MainWindow(QMainWindow):
         )
         QMessageBox.information(self, "Thành công", msg)
 
-    def _remove_multiple_files_from_list(self, files: List[Path]):
-        """Xóa nhiều tệp khỏi danh sách và xóa luôn cấu hình voice riêng."""
+    def _table_files_key_press(self, event):
+        """Xử lý phím tắt khi người dùng tương tác trên bảng danh sách tệp (Delete / Backspace để xóa hàng)."""
+        if event.key() in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace):
+            self._delete_selected_files()
+            event.accept()
+        else:
+            QTableWidget.keyPressEvent(self.table_files, event)
+
+    def _delete_selected_files(self):
+        """Xóa các hàng tệp .txt đang được chọn khỏi danh sách xử lý."""
+        if self.bridge_thread and self.bridge_thread.isRunning():
+            QMessageBox.warning(
+                self,
+                "Chú ý",
+                "Tiến trình tạo voice đang chạy. Vui lòng dừng tiến trình trước khi xóa tệp khỏi danh sách!"
+            )
+            return
+
+        selected_rows = sorted(list(set(item.row() for item in self.table_files.selectedItems())), reverse=True)
+        if not selected_rows:
+            cur_row = self.table_files.currentRow()
+            if 0 <= cur_row < len(self.file_list):
+                selected_rows = [cur_row]
+            else:
+                QMessageBox.information(
+                    self,
+                    "Thông báo",
+                    "Vui lòng chọn ít nhất một hàng tệp .txt trong bảng để xóa!\n\n"
+                    "(Mẹo: Bạn có thể click chọn 1 hàng hoặc giữ Ctrl / Shift để chọn nhiều hàng, sau đó bấm 'Xóa row' hoặc phím Delete)"
+                )
+                return
+
+        candidate_idx = min(selected_rows) if selected_rows else 0
+        target_files = [self.file_list[r] for r in selected_rows if 0 <= r < len(self.file_list)]
+        if not target_files:
+            return
+
+        self._remove_multiple_files_from_list(target_files, next_selected_index=candidate_idx)
+
+    def _clear_all_files(self):
+        """Xóa toàn bộ danh sách tệp .txt trong bảng."""
+        if self.bridge_thread and self.bridge_thread.isRunning():
+            QMessageBox.warning(
+                self,
+                "Chú ý",
+                "Tiến trình tạo voice đang chạy. Vui lòng dừng tiến trình trước khi làm trống danh sách!"
+            )
+            return
+
+        if not self.file_list:
+            QMessageBox.information(self, "Thông báo", "Danh sách tệp đang trống sẵn!")
+            return
+
+        reply = QMessageBox.question(
+            self,
+            "Xác nhận xóa tất cả",
+            f"Bạn có chắc chắn muốn xóa toàn bộ {len(self.file_list)} tệp .txt khỏi danh sách không?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self.file_list.clear()
+            self._update_files_table()
+
+    def _delete_files_from_disk(self, files: List[Path]):
+        """Xóa vĩnh viễn các tệp .txt đã chọn trên ổ cứng máy tính."""
+        if self.bridge_thread and self.bridge_thread.isRunning():
+            QMessageBox.warning(
+                self,
+                "Chú ý",
+                "Tiến trình tạo voice đang chạy. Vui lòng dừng tiến trình trước khi xóa tệp!"
+            )
+            return
+
+        file_names = "\n".join([f"• {f.name}" for f in files[:5]])
+        if len(files) > 5:
+            file_names += f"\n... và {len(files) - 5} tệp khác"
+
+        reply = QMessageBox.warning(
+            self,
+            "CẢNH BÁO: XÓA TỆP TRÊN Ổ CỨNG",
+            f"Bạn có CHẮC CHẮN muốn XÓA VĨNH VIỄN {len(files)} tệp .txt sau đây trên ổ cứng không?\n\n"
+            f"{file_names}\n\n"
+            f"⚠ Lưu ý: Tệp sẽ bị xóa hoàn toàn khỏi máy tính và không thể khôi phục!",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        deleted_count = 0
+        failed_count = 0
         for f in files:
-            if f in self.file_list:
-                self.file_list.remove(f)
-            target_str = str(f.resolve()).lower()
-            self.settings.file_voice_profiles = [
-                fvp for fvp in self.settings.file_voice_profiles
-                if str(Path(fvp.file_path).resolve()).lower() != target_str
-            ]
+            try:
+                if f.exists():
+                    f.unlink()
+                deleted_count += 1
+            except Exception as e:
+                logger.error(f"Lỗi khi xóa tệp {f} trên ổ cứng: {e}")
+                failed_count += 1
+
+        self._remove_multiple_files_from_list(files)
+        if failed_count == 0:
+            QMessageBox.information(self, "Đã xóa tệp", f"Đã xóa thành công {deleted_count} tệp .txt trên ổ cứng.")
+        else:
+            QMessageBox.warning(self, "Kết quả xóa", f"Đã xóa {deleted_count} tệp, gặp lỗi {failed_count} tệp (có thể do tệp đang mở).")
+
+    def _remove_multiple_files_from_list(self, files: List[Path], next_selected_index: Optional[int] = None):
+        """Xóa nhiều tệp khỏi danh sách và xóa luôn cấu hình voice riêng."""
+        target_resolved = {str(f.resolve()).lower() for f in files}
+        self.file_list = [
+            f for f in self.file_list
+            if str(f.resolve()).lower() not in target_resolved
+        ]
+        self.settings.file_voice_profiles = [
+            fvp for fvp in self.settings.file_voice_profiles
+            if str(Path(fvp.file_path).resolve()).lower() not in target_resolved
+        ]
         self.settings.save()
+        if next_selected_index is not None:
+            self.selected_file_index = next_selected_index
         self._update_files_table()
+
+    def _on_current_cell_changed(self, current_row: int, current_col: int, previous_row: int, previous_col: int):
+        """Khi con trỏ ô hoặc hàng thay đổi (qua click chuột hoặc phím mũi tên)."""
+        if 0 <= current_row < len(self.file_list) and current_row != self.selected_file_index:
+            self._on_file_selected(current_row, current_col)
 
     def _prompt_change_voice_for_file(self, file_path: Path):
         """Mở hộp thoại chọn mẫu giọng nhanh cho tệp khi nhấp đúp vào cột giọng."""
@@ -1029,9 +1164,22 @@ class MainWindow(QMainWindow):
         action_open_dir = menu.addAction("📂 Mở thư mục chứa file trong Explorer")
         action_open_dir.triggered.connect(lambda: os.startfile(str(file_path.parent)))
 
+        menu.addSeparator()
+
         # 5. Xóa file khỏi danh sách
-        action_remove = menu.addAction(f"🗑 Xóa {label_target} khỏi danh sách")
+        action_remove = menu.addAction(f"🗑 Xóa {label_target} khỏi danh sách (Delete)")
         action_remove.triggered.connect(lambda: self._remove_multiple_files_from_list(target_files))
+
+        # 6. Xóa toàn bộ danh sách
+        if len(self.file_list) > 1:
+            action_clear = menu.addAction("🧹 Xóa toàn bộ danh sách (Làm trống bảng)")
+            action_clear.triggered.connect(self._clear_all_files)
+
+        menu.addSeparator()
+
+        # 7. Xóa vĩnh viễn tệp trên đĩa
+        action_del_disk = menu.addAction(f"❌ Xóa vĩnh viễn {label_target} trên ổ đĩa...")
+        action_del_disk.triggered.connect(lambda: self._delete_files_from_disk(target_files))
 
         menu.exec(self.table_files.viewport().mapToGlobal(pos))
 
@@ -1068,8 +1216,7 @@ class MainWindow(QMainWindow):
 
     def _remove_file_from_list(self, row: int):
         if 0 <= row < len(self.file_list):
-            del self.file_list[row]
-            self._update_files_table()
+            self._remove_multiple_files_from_list([self.file_list[row]])
 
     def _open_settings(self):
         self._save_ui_to_settings()
@@ -1234,7 +1381,19 @@ class MainWindow(QMainWindow):
             self.table_files.setItem(row, 4, item_out)
 
         if self.file_list:
-            self._on_file_selected(0, 0)
+            target_idx = max(0, min(self.selected_file_index, len(self.file_list) - 1))
+            self.selected_file_index = target_idx
+            self.table_files.blockSignals(True)
+            self.table_files.selectRow(target_idx)
+            self.table_files.setCurrentCell(target_idx, 0)
+            self.table_files.blockSignals(False)
+            self._on_file_selected(target_idx, 0)
+        else:
+            self.selected_file_index = -1
+            self.table_chunks.setRowCount(0)
+            self.lbl_selected_file.setText("Chi tiết đoạn văn bản (Danh sách đang trống)")
+            self.lbl_stats.setText("Tổng: 0 đoạn | Hoàn thành: 0")
+            self.progress_bar.setValue(0)
 
     def _on_file_selected(self, row: int, col: int):
         if 0 <= row < len(self.file_list):
@@ -1331,6 +1490,7 @@ class MainWindow(QMainWindow):
         self.btn_start_voice.setEnabled(False)
         self.btn_start_both.setEnabled(False)
         self.btn_warm_profile.setEnabled(False)
+        self.btn_delete_file.setEnabled(False)
         self.btn_stop.setEnabled(True)
 
         self.lbl_warmer_status.setText("Trạng thái: Đang tạo voice bằng Profile sẵn có...")
@@ -1360,6 +1520,7 @@ class MainWindow(QMainWindow):
         self.btn_start_voice.setEnabled(False)
         self.btn_start_both.setEnabled(False)
         self.btn_warm_profile.setEnabled(False)
+        self.btn_delete_file.setEnabled(False)
         self.btn_stop.setEnabled(True)
 
         self.lbl_warmer_status.setText("Trạng thái: Đang chạy quy trình khép kín (Nuôi IP -> Tạo Voice)...")
@@ -1386,6 +1547,7 @@ class MainWindow(QMainWindow):
         if self.warmer_thread and self.warmer_thread.isRunning():
             self.warmer_thread.stop()
         self.lbl_warmer_status.setText("Trạng thái: Đã dừng tiến trình")
+        self.btn_delete_file.setEnabled(True)
         self.btn_stop.setEnabled(False)
 
     @pyqtSlot(str)
@@ -1476,6 +1638,7 @@ class MainWindow(QMainWindow):
     def _on_processing_finished(self, success: bool):
         self.btn_start_voice.setEnabled(True)
         self.btn_warm_profile.setEnabled(True)
+        self.btn_delete_file.setEnabled(True)
         if not (self.warmer_thread and self.warmer_thread.isRunning()):
             self.btn_start_both.setEnabled(True)
         self.btn_stop.setEnabled(False)

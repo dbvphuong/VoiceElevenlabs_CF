@@ -10,7 +10,7 @@ from config.settings import AppSettings
 from core.models import ChunkTask, TtsResult
 from network.proxy_pool import ProxyPool, RotatingProxyKey
 from network.tts_client import generate_tts, is_v4_model
-from captcha.token_farmer import TokenFarmer
+from captcha.token_farmer import NavigationNetworkError, TokenFarmer
 
 class WorkerState:
     """Trạng thái nội bộ của một Worker."""
@@ -212,15 +212,47 @@ class PipelineWorker:
                     except Exception as ex:
                         last_failure = f"Không lấy được token Captcha: {ex}"
                         logger.warning(f"[Worker {self.worker_id}] {last_failure}")
+
+                        # Lỗi điều hướng là lỗi kết nối/proxy, không phải profile Captcha hỏng.
+                        if isinstance(ex, NavigationNetworkError):
+                            self.state.consecutive_token_failures = 0
+                            if self.farmer:
+                                try:
+                                    await self.farmer.close()
+                                except Exception as close_err:
+                                    logger.debug(f"Không đóng được phiên Chrome sau lỗi mạng: {close_err}")
+                                finally:
+                                    self.farmer = None
+                            if proxy_key:
+                                cooldown_seconds = 60 if proxy_key.is_direct_proxy else 0
+                                if not proxy_key.is_direct_proxy:
+                                    proxy_key.current_ip = ""
+                                    proxy_key.current_exit_ip = None
+                            self._update_status(task, "Đang xử lý", "Kết nối ElevenLabs bị ngắt; tạo phiên mới và thử lại...")
+                            await asyncio.sleep(2)
+                            continue
+
                         self.state.consecutive_token_failures += 1
+
+                        # Nếu là lỗi crash/closed browser context hoặc mạng đứt -> dọn dẹp sạch để tạo phiên mới
+                        err_str = str(ex).lower()
+                        if any(k in err_str for k in ("target", "closed", "crash", "empty_response", "connection")):
+                            if self.farmer:
+                                try:
+                                    await self.farmer.close()
+                                except Exception:
+                                    pass
+                                self.farmer = None
+
                         if self.state.consecutive_token_failures >= 2:
-                            prof_name = farmer.profile_name
+                            prof_name = farmer.profile_name if farmer else "N/A"
                             logger.warning(
                                 f"[Worker {self.worker_id}] [CẢNH BÁO] Profile '{prof_name}' bị lỗi Captcha {self.state.consecutive_token_failures} lần liên tiếp. "
                                 f"Tiến hành xóa profile này..."
                             )
                             self._update_status(task, "Đang xử lý", f"Xóa profile lỗi {prof_name}, đổi profile...")
-                            await farmer.discard_profile()
+                            if farmer:
+                                await farmer.discard_profile()
                             self.farmer = None
                             self.state.consecutive_token_failures = 0
                             try:
@@ -323,10 +355,13 @@ class PipelineWorker:
                         logger.warning(f"[Worker {self.worker_id}] Đã hết {max_blocking_attempts} lần lỗi chặn; chuyển sang vòng sau.")
                         return True
 
-                    logger.error(f"[Worker {self.worker_id}] Dừng worker do lỗi chặn: {result.message}")
-                    return False
+                    logger.warning(
+                        f"[Worker {self.worker_id}] Chunk {chunk_num} không thể tạo (Lỗi: {result.message}). "
+                        f"Bỏ qua chunk này để tiếp tục xử lý các đoạn khác trong hàng đợi..."
+                    )
+                    return True
 
-                # Lỗi Retryable thông thường
+                # Lỗi Retryable thông thường (hoặc xoay proxy)
                 if proxy_key:
                     cooldown_seconds = 60 if proxy_key.is_direct_proxy else 0
                     if not proxy_key.is_direct_proxy:

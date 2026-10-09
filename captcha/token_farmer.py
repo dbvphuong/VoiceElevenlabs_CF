@@ -13,6 +13,22 @@ from captcha.scripts import HCAPTCHA_TRIGGER_JS
 from network.proxy_pool import parse_proxy_string, resolve_proxy_or_api_key
 from captcha.profile_manager import profile_manager, cleanup_profile_locks
 
+
+class NavigationNetworkError(RuntimeError):
+    """Không thể mở trang đích do kết nối mạng hoặc proxy."""
+
+
+def is_navigation_network_error(error: Exception) -> bool:
+    message = str(error).lower()
+    return any(marker in message for marker in (
+        "net::err_connection_closed",
+        "net::err_connection_reset",
+        "net::err_empty_response",
+        "net::err_timed_out",
+        "page.goto: timeout",
+    ))
+
+
 class TokenFarmer:
     """Quản lý một phiên trình duyệt Chrome (thừa hưởng Profile đã nuôi) để farm token hCaptcha."""
 
@@ -48,8 +64,11 @@ class TokenFarmer:
 
     async def start(self) -> None:
         """Khởi động trình duyệt với Profile đã nuôi và cấu hình Off-screen anti-detect."""
-        if self._context:
+        if self._context and self._page and not self._page.is_closed():
             return
+
+        if self._context or self._page:
+            await self.close()
 
         # Phân giải proxy nếu là API key
         if not self._proxy_info and self.proxy_raw:
@@ -252,7 +271,19 @@ class TokenFarmer:
             try:
                 # 1. Điều hướng tới elevenlabs.io nếu chưa mở
                 if "elevenlabs.io" not in self._page.url:
-                    await self._page.goto(ELEVENLABS_HOME_URL, wait_until="commit", timeout=25000)
+                    for attempt in range(2):
+                        try:
+                            await self._page.goto(ELEVENLABS_HOME_URL, wait_until="commit", timeout=25000)
+                            break
+                        except Exception as goto_err:
+                            if not is_navigation_network_error(goto_err):
+                                raise
+                            if attempt == 1:
+                                raise NavigationNetworkError(
+                                    f"Không mở được elevenlabs.io qua kết nối hiện tại sau 2 lần: {goto_err}"
+                                ) from goto_err
+                            logger.warning(f"Kết nối tới elevenlabs.io bị ngắt; thử lại sau 1.5s: {goto_err}")
+                            await asyncio.sleep(1.5)
                     await self._page.wait_for_load_state("domcontentloaded", timeout=15000)
                     # Mô phỏng chuột nhẹ để kích hoạt hành vi tự nhiên
                     try:

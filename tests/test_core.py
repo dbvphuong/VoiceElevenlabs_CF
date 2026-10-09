@@ -59,11 +59,12 @@ def test_tts_result_from_error():
     assert res1.retryable is True
     assert res1.rotate_proxy is True
 
-    # 2. detected_unusual_activity
+    # 2. detected_unusual_activity: Lỗi theo IP, cần xoay proxy và thử lại, không làm dừng worker
     res2 = TtsResult.from_error(401, json.dumps({
         "detail": {"status": "detected_unusual_activity"}
     }))
-    assert res2.is_worker_stopping_error is True
+    assert res2.is_worker_stopping_error is False
+    assert res2.retryable is True
     assert res2.rotate_proxy is True
 
     # 3. Server 500

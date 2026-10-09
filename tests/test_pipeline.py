@@ -151,3 +151,54 @@ def test_orchestrator_output_file_suffix():
     out_path3 = orchestrator_default.get_output_path(Path("sample/test.txt"))
     assert out_path3.name == "test.mp3"
 
+
+@pytest.mark.asyncio
+async def test_orchestrator_retry_round_preserves_all_uncompleted_chunks(monkeypatch):
+    """Đảm bảo Orchestrator ở các vòng retry không bao giờ bị mất task khi có chunk lỗi."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        text_file = tmp_path / "long_text.txt"
+        text_file.write_text("Đoạn một. Đoạn hai. Đoạn ba. Đoạn bốn.", encoding="utf-8")
+
+        settings = AppSettings(chunk_size=10, thread_count=1)
+        orchestrator = Orchestrator(settings=settings)
+
+        call_count = {}
+        from pipeline.worker import PipelineWorker
+
+        async def mock_process_chunk(self, task, max_attempts=1, retry_round=0, cancel_event=None):
+            idx = task.chunk_index
+            call_count[idx] = call_count.get(idx, 0) + 1
+            if retry_round == 0:
+                if idx in (0, 2):
+                    # Giả lập thất bại: không tạo mp3
+                    return True
+                else:
+                    create_sample_mp3(Path(task.chunk_mp3_path), duration=0.2)
+                    if self.on_chunk_completed:
+                        res = self.on_chunk_completed(task)
+                        if asyncio.iscoroutine(res):
+                            await res
+                    return True
+            else:
+                # Ở retry round: tạo thành công
+                create_sample_mp3(Path(task.chunk_mp3_path), duration=0.2)
+                if self.on_chunk_completed:
+                    res = self.on_chunk_completed(task)
+                    if asyncio.iscoroutine(res):
+                        await res
+                return True
+
+        monkeypatch.setattr(PipelineWorker, "process_chunk", mock_process_chunk)
+
+        success = await orchestrator.run([text_file])
+        assert success is True
+        # Cả 4 chunk đều phải hoàn thành và các chunk lỗi được retry đầy đủ
+        assert call_count[0] >= 2
+        assert call_count[2] >= 2
+        assert call_count[1] >= 1
+        assert call_count[3] >= 1
+        out_mp3 = orchestrator.get_output_path(text_file)
+        assert out_mp3.exists()
+        assert out_mp3.stat().st_size > 0
+
