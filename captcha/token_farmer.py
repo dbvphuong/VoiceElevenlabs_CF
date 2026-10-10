@@ -202,67 +202,21 @@ class TokenFarmer:
                     return False
 
             try:
-                # 1. YouTube (~8-10 giây)
-                report("Đang nạp Cookie YouTube...")
-                ok_yt = await safe_goto("https://www.youtube.com")
-                if ok_yt and not (cancel_event and cancel_event.is_set()):
-                    await asyncio.sleep(random.uniform(2.5, 3.5))
-                    try:
-                        search_input = self._page.locator("input#search, input[name='search_query']").first
-                        if await search_input.count() > 0:
-                            await search_input.click()
-                            sample_queries = ["tin tức hôm nay", "nhạc lofi thư giãn", "tin việt nam mới nhất", "thời tiết hôm nay"]
-                            q = random.choice(sample_queries)
-                            await self._page.keyboard.type(q, delay=random.randint(40, 80))
-                            await self._page.keyboard.press("Enter")
-                            await asyncio.sleep(random.uniform(2.0, 3.0))
-                    except Exception:
-                        pass
-                    try:
-                        await self._page.mouse.wheel(0, random.randint(400, 600))
-                        await asyncio.sleep(random.uniform(1.2, 1.8))
-                    except Exception:
-                        pass
-
-                if cancel_event and cancel_event.is_set():
-                    return False
-
-                # 2. VnExpress (~10-12 giây)
-                report("Đang nạp Cache VnExpress...")
-                ok_vn = await safe_goto("https://vnexpress.net")
-                if ok_vn and not (cancel_event and cancel_event.is_set()):
-                    await asyncio.sleep(random.uniform(2.5, 3.5))
-                    try:
-                        await self._page.mouse.wheel(0, random.randint(500, 700))
-                        await asyncio.sleep(random.uniform(1.2, 1.8))
-                        articles = self._page.locator("article.item-news a.title-news, h3.title-news a, .item-news h3 a")
-                        cnt = await articles.count()
-                        if cnt > 0:
-                            pick_idx = random.randint(0, min(cnt - 1, 5))
-                            await articles.nth(pick_idx).click(timeout=6000)
-                            await asyncio.sleep(random.uniform(3.0, 4.0))
-                            await self._page.mouse.wheel(0, random.randint(300, 500))
-                            await asyncio.sleep(random.uniform(1.0, 1.5))
-                    except Exception:
-                        pass
-
-                if cancel_event and cancel_event.is_set():
-                    return False
-
-                # 3. hCaptcha Demo (~6-8 giây)
-                report("Đang nạp Script hCaptcha Demo...")
-                ok_hc = await safe_goto("https://accounts.hcaptcha.com/demo")
+                # Nuôi siêu tốc: Nạp endpoint hCaptcha Demo và rê chuột 2s để tạo session trust
+                report("Đang nạp Script hCaptcha Demo & rê chuột 2s...")
+                ok_hc = await safe_goto("https://accounts.hcaptcha.com/demo", timeout_ms=15000)
                 if ok_hc and not (cancel_event and cancel_event.is_set()):
-                    await asyncio.sleep(random.uniform(2.5, 3.5))
-                    for _ in range(random.randint(5, 8)):
+                    for _ in range(random.randint(4, 6)):
+                        if cancel_event and cancel_event.is_set():
+                            return False
                         tx = random.randint(150, 750)
                         ty = random.randint(120, 500)
                         await self._page.mouse.move(tx, ty, steps=random.randint(4, 8))
-                        await asyncio.sleep(random.uniform(0.1, 0.25))
-                    await asyncio.sleep(random.uniform(1.5, 2.0))
+                        await asyncio.sleep(random.uniform(0.2, 0.35))
+                    await asyncio.sleep(0.5)
 
                 self.is_session_warmed = True
-                report("Nuôi Profile trên IP này hoàn tất!")
+                report("Nuôi siêu tốc trên IP hoàn tất!")
                 return True
 
             except Exception as e:
