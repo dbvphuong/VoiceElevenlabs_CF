@@ -336,7 +336,7 @@ class Orchestrator:
                 await task_queue.put(t)
 
             failed_this_round: List[ChunkTask] = []
-            max_attempts_per_chunk = 3 if round_idx == 0 else 2
+            max_attempts_per_chunk = 5 if round_idx == 0 else 3
 
             # Tạo danh sách Worker
             workers = [

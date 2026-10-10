@@ -78,7 +78,7 @@ class PipelineWorker:
     async def process_chunk(
         self,
         task: ChunkTask,
-        max_attempts: int = 3,
+        max_attempts: int = 5,
         retry_round: int = 0,
         cancel_event: Optional[Any] = None,
     ) -> bool:
