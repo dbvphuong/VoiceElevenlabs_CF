@@ -216,7 +216,8 @@ class MainWindow(QMainWindow):
         row_params.addWidget(QLabel("Tốc độ:"))
         self.num_speed = QDoubleSpinBox()
         self.num_speed.setRange(0.7, 1.2)
-        self.num_speed.setSingleStep(0.05)
+        self.num_speed.setDecimals(2)
+        self.num_speed.setSingleStep(0.01)
         self.num_speed.valueChanged.connect(self._on_voice_param_changed)
         row_params.addWidget(self.num_speed)
 
@@ -963,15 +964,15 @@ class MainWindow(QMainWindow):
         self._update_files_table()
 
     def _update_model_controls(self, index: int):
-        """Bật/tắt các thanh điều khiển không áp dụng cho Model v4 (Speed, Style, Boost)."""
+        """Cập nhật chú thích và trạng thái các thanh điều khiển (Speed, Style, Boost). Luôn cho phép người dùng tự do điều chỉnh."""
+        self.num_speed.setEnabled(True)
+        self.num_style.setEnabled(True)
+        self.chk_boost.setEnabled(True)
         is_v4 = is_v4_model(index)
-        self.num_speed.setEnabled(not is_v4)
-        self.num_style.setEnabled(not is_v4)
-        self.chk_boost.setEnabled(not is_v4)
         if is_v4:
-            self.num_speed.setToolTip("Model v4 tự động điều tiết nhịp điệu (không dùng tham số Speed)")
-            self.num_style.setToolTip("Model v4 tự diễn đạt cảm xúc qua ngữ cảnh văn bản (không dùng tham số Style)")
-            self.chk_boost.setToolTip("Model v4 tự động tối ưu âm sắc")
+            self.num_speed.setToolTip("Tốc độ phát âm (0.7 - 1.2). Lưu ý: Với Model v4, ElevenLabs tự điều tiết nhịp điệu.")
+            self.num_style.setToolTip("Phong cách (Style). Lưu ý: Model v4 tự diễn đạt cảm xúc qua ngữ cảnh văn bản.")
+            self.chk_boost.setToolTip("Tăng cường giọng nói (Speaker Boost)")
         else:
             self.num_speed.setToolTip("Tốc độ phát âm (0.7 - 1.2)")
             self.num_style.setToolTip("Cường điệu cảm xúc / Phong cách (Style Exaggeration)")

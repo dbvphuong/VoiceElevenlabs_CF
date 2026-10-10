@@ -63,6 +63,12 @@ QLineEdit:focus, QTextEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBo
     border: 1px solid #2563EB;
 }
 
+QLineEdit:disabled, QTextEdit:disabled, QComboBox:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled {
+    background-color: #F1F5F9;
+    border: 1px solid #E2E8F0;
+    color: #94A3B8;
+}
+
 QPushButton {
     background-color: #F8FAFC;
     border: 1px solid #CBD5E1;
