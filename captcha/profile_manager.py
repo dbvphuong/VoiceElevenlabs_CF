@@ -1,5 +1,4 @@
-"""Quản lý các thư mục Profile (profiles_nuoi và profiles_dung)."""
-
+import sys
 import os
 import shutil
 import time
@@ -9,7 +8,7 @@ from typing import List, Optional, Set
 from loguru import logger
 import psutil
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent.parent
 PROFILE_BASE_DIR = PROJECT_ROOT / "Profile"
 PROFILES_NUOI_DIR = PROFILE_BASE_DIR / "profiles_nuoi"
 PROFILES_DUNG_DIR = PROFILE_BASE_DIR / "profiles_dung"

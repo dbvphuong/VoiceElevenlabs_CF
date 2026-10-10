@@ -83,9 +83,17 @@ class Orchestrator:
             if fvp.file_path:
                 try:
                     if str(Path(fvp.file_path).resolve()).lower() == file_resolved:
+                        if fvp.voice.name:
+                            for vt in self.settings.voice_templates:
+                                if vt.name.lower() == fvp.voice.name.lower():
+                                    return vt
                         return fvp.voice
                 except Exception:
                     if fvp.file_path.lower() == file_resolved:
+                        if fvp.voice.name:
+                            for vt in self.settings.voice_templates:
+                                if vt.name.lower() == fvp.voice.name.lower():
+                                    return vt
                         return fvp.voice
 
         # 2. Kiểm tra FolderVoiceProfiles
@@ -95,6 +103,10 @@ class Orchestrator:
                 try:
                     p_folder = str(Path(fvp.folder_path).resolve()).lower()
                     if file_dir == p_folder or file_dir.startswith(p_folder + "\\") or file_dir.startswith(p_folder + "/"):
+                        if fvp.voice.name:
+                            for vt in self.settings.voice_templates:
+                                if vt.name.lower() == fvp.voice.name.lower():
+                                    return vt
                         return fvp.voice
                 except Exception:
                     pass
@@ -102,8 +114,8 @@ class Orchestrator:
         # 3. Kiểm tra Selected Voice Template
         if self.settings.selected_voice_template_name:
             for vt in self.settings.voice_templates:
-                if vt.name == self.settings.selected_voice_template_name:
-                    return vt
+                if vt.name.lower() == self.settings.selected_voice_template_name.lower():
+                    return vt.model_copy()
 
         # 4. Sử dụng cấu hình chung của settings
         return VoiceTemplate(
@@ -140,8 +152,17 @@ class Orchestrator:
 
         # Nếu đã hoàn thành đủ mọi chunk của file này -> Ghép MP3
         if fp.completed_chunks == fp.total_chunks:
-            t = asyncio.create_task(self._merge_file(task.file_index))
-            self._pending_merge_tasks.append(t)
+            coro = self._merge_file(task.file_index)
+            try:
+                t = asyncio.create_task(coro)
+                self._pending_merge_tasks.append(t)
+            except RuntimeError:
+                coro.close()
+
+        # Nếu toàn bộ các đoạn trong danh sách đã hoàn thành -> Dừng ngay lập tức các worker đang nuôi / chờ
+        if self.total_completed_chunks >= self.total_chunks_all and self.total_chunks_all > 0:
+            logger.success(f"Toàn bộ {self.total_completed_chunks}/{self.total_chunks_all} đoạn đã hoàn tất! Phát tín hiệu dừng ngay các worker khác.")
+            self.cancel_event.set()
 
     async def _merge_file(self, file_index: int) -> None:
         """Ghép nối các part của một file thành tệp MP3 cuối cùng."""
@@ -228,7 +249,25 @@ class Orchestrator:
             voice_prof = self.get_voice_profile_for_file(file_path)
 
             for c_idx, c_text in enumerate(chunks):
-                c_path = chunk_dir / f"part_{c_idx}.mp3"
+                stt = c_idx + 1
+                c_path = chunk_dir / f"{stt}.mp3"
+
+                # Tương thích ngược: tự động đổi tên file part_ cũ nếu có
+                if not c_path.exists():
+                    old_candidates = [
+                        chunk_dir / f"part_{c_idx}.mp3",
+                        chunk_dir / f"part_{stt}.mp3",
+                        chunk_dir / f"Part_{c_idx}.mp3",
+                        chunk_dir / f"Part_{stt}.mp3",
+                    ]
+                    for old_p in old_candidates:
+                        if old_p.exists() and old_p.stat().st_size > 0:
+                            try:
+                                old_p.rename(c_path)
+                                break
+                            except Exception:
+                                pass
+
                 fp.chunk_paths.append(str(c_path))
 
                 # Kiểm tra cơ chế Resume: Đoạn MP3 đã có sẵn từ phiên trước
@@ -315,10 +354,23 @@ class Orchestrator:
 
             async def worker_loop(w: PipelineWorker):
                 while not self.cancel_event.is_set():
+                    # Nếu toàn bộ các đoạn trong dự án đã hoàn thành, thoát ngay
+                    if self.total_completed_chunks >= self.total_chunks_all and self.total_chunks_all > 0:
+                        break
+
                     try:
                         task = task_queue.get_nowait()
                     except asyncio.QueueEmpty:
                         break
+
+                    # Nếu file này đã hoàn thành hoặc đoạn này đã có sẵn MP3, bỏ qua
+                    fp = self.file_progresses.get(task.file_index)
+                    if fp and fp.completed_chunks >= fp.total_chunks:
+                        continue
+
+                    chunk_p = Path(task.chunk_mp3_path)
+                    if chunk_p.exists() and chunk_p.stat().st_size > 0:
+                        continue
 
                     try:
                         await w.process_chunk(

@@ -202,3 +202,104 @@ async def test_orchestrator_retry_round_preserves_all_uncompleted_chunks(monkeyp
         assert out_mp3.exists()
         assert out_mp3.stat().st_size > 0
 
+
+def test_orchestrator_sets_cancel_event_when_all_chunks_completed():
+    """Kiểm tra orchestrator tự động kích hoạt cancel_event ngay khi toàn bộ chunk hoàn tất."""
+    orchestrator = Orchestrator(settings=AppSettings())
+    orchestrator.total_chunks_all = 3
+    orchestrator.total_completed_chunks = 2
+    orchestrator.file_progresses[0] = FileProgress(
+        file_index=0,
+        total_chunks=3,
+        completed_chunks=2,
+        chunk_paths=[],
+        output_path="test.mp3"
+    )
+    from core.models import ChunkTask, VoiceTemplate
+    task = ChunkTask(
+        file_index=0,
+        file_path="test.txt",
+        chunk_index=2,
+        text="Last chunk",
+        chunk_mp3_path="part_2.mp3",
+        voice_profile=VoiceTemplate(voice_id="xyz")
+    )
+    assert not orchestrator.cancel_event.is_set()
+    orchestrator._on_chunk_completed(task)
+    assert orchestrator.total_completed_chunks == 3
+    assert orchestrator.cancel_event.is_set()
+
+
+@pytest.mark.asyncio
+async def test_worker_skips_when_chunk_exists_or_cancelled(tmp_path):
+    """Kiểm tra PipelineWorker bỏ qua ngay nếu file chunk đã có sẵn hoặc cancel_event đã bật."""
+    import threading
+    from pipeline.worker import PipelineWorker
+    from core.models import ChunkTask, VoiceTemplate
+
+    chunk_file = tmp_path / "done_chunk.mp3"
+    create_sample_mp3(chunk_file, duration=0.2)
+
+    task = ChunkTask(
+        file_index=0,
+        file_path="sample.txt",
+        chunk_index=0,
+        text="Already done",
+        chunk_mp3_path=str(chunk_file),
+        voice_profile=VoiceTemplate(voice_id="xyz")
+    )
+
+    worker = PipelineWorker(worker_id=1, settings=AppSettings(), warm_and_voice=True)
+    cancel_event = threading.Event()
+
+    # Case 1: File chunk đã tồn tại trên đĩa -> trả về True ngay lập tức không khởi chạy nuôi/tạo
+    result = await worker.process_chunk(task, cancel_event=cancel_event)
+    assert result is True
+
+    # Case 2: cancel_event đã set -> trả về False ngay lập tức
+    not_done_file = tmp_path / "not_done.mp3"
+    task2 = ChunkTask(
+        file_index=0,
+        file_path="sample.txt",
+        chunk_index=1,
+        text="Not done",
+        chunk_mp3_path=str(not_done_file),
+        voice_profile=VoiceTemplate(voice_id="xyz")
+    )
+    cancel_event.set()
+    result2 = await worker.process_chunk(task2, cancel_event=cancel_event)
+    assert result2 is False
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_chunk_naming_stt_mp3(tmp_path, monkeypatch):
+    """Kiểm tra tên file chunk được tạo dưới dạng STT.mp3 bắt đầu từ 1.mp3 (1.mp3, 2.mp3, ...)."""
+    text_file = tmp_path / "sample_story.txt"
+    text_file.write_text("Câu một dài thật là dài. Câu hai cũng dài không kém. Câu ba kết thúc ở đây.", encoding="utf-8")
+
+    settings = AppSettings(chunk_size=30)
+    orchestrator = Orchestrator(settings=settings)
+
+    from pipeline.worker import PipelineWorker
+
+    async def mock_process(self, task, max_attempts=1, retry_round=0, cancel_event=None):
+        create_sample_mp3(Path(task.chunk_mp3_path), duration=0.1)
+        if self.on_chunk_completed:
+            res = self.on_chunk_completed(task)
+            if asyncio.iscoroutine(res):
+                await res
+        return True
+
+    monkeypatch.setattr(PipelineWorker, "process_chunk", mock_process)
+
+    success = await orchestrator.run([text_file])
+    assert success is True
+
+    fp = orchestrator.file_progresses[0]
+    assert len(fp.chunk_paths) >= 2
+    for idx, cp in enumerate(fp.chunk_paths):
+        expected_name = f"{idx + 1}.mp3"
+        assert Path(cp).name == expected_name
+
+
+

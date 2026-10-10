@@ -91,3 +91,8 @@ ehthumbs_vista.db
 *.stackdump
 [Dd]esktop.ini
 .DS_Store
+
+# Binaries / Executables
+*.exe
+ffmpeg.exe
+ffprobe.exe

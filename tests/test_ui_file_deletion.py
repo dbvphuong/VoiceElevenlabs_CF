@@ -3,6 +3,7 @@
 import sys
 import tempfile
 from pathlib import Path
+import pytest
 from PyQt6.QtWidgets import QApplication, QMessageBox
 from PyQt6.QtCore import Qt, QEvent
 from PyQt6.QtGui import QKeyEvent
@@ -14,6 +15,17 @@ from config.settings import AppSettings, FileVoiceProfile, VoiceTemplate
 app = QApplication.instance()
 if app is None:
     app = QApplication(sys.argv)
+
+@pytest.fixture(autouse=True)
+def isolate_settings(tmp_path, monkeypatch):
+    """Bảo vệ settings.json thật của dự án: mọi test MainWindow đều dùng file tạm riêng."""
+    test_settings_file = tmp_path / "isolated_settings.json"
+    orig_init = MainWindow.__init__
+    def patched_init(self, settings_path=None, *args, **kwargs):
+        if settings_path is None:
+            settings_path = test_settings_file
+        orig_init(self, settings_path=settings_path, *args, **kwargs)
+    monkeypatch.setattr(MainWindow, "__init__", patched_init)
 
 def test_delete_single_file_from_table():
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -195,3 +207,61 @@ def test_cannot_delete_while_processing(monkeypatch):
 
         assert warn_called is True
         assert len(win.file_list) == 1
+
+def test_deleted_row_persists_in_excluded_files_across_rescan():
+    """Đảm bảo khi xóa row, file được đưa vào excluded_files và khi quét lại / mở lại app không bị hiện lại."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        f1 = tmp_path / "keep.txt"
+        f2 = tmp_path / "remove.txt"
+        f1.write_text("Giữ lại", encoding="utf-8")
+        f2.write_text("Xóa tôi", encoding="utf-8")
+
+        win = MainWindow()
+        win.settings.folders = [str(tmp_path)]
+        win.settings.excluded_files = []
+        win.file_list = [f1, f2]
+        win._update_files_table()
+
+        # Xóa f2 khỏi bảng
+        win._remove_multiple_files_from_list([f2])
+
+        # Kiểm tra f2 đã được đưa vào excluded_files
+        assert any("remove.txt" in ex for ex in win.settings.excluded_files)
+        assert len(win.file_list) == 1
+        assert win.file_list[0] == f1
+
+        # Mô phỏng quét lại thư mục hoặc mở lại app
+        win._rescan_files()
+
+        # f2 KHÔNG được xuất hiện lại trong bảng!
+        assert len(win.file_list) == 1
+        assert win.file_list[0] == f1
+        assert win.table_files.rowCount() == 1
+
+def test_restore_excluded_files(monkeypatch):
+    """Đảm bảo khi khôi phục các tệp đã xóa, các tệp lại xuất hiện trong bảng."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        f1 = tmp_path / "file_a.txt"
+        f1.write_text("Nội dung", encoding="utf-8")
+
+        win = MainWindow()
+        win.settings.folders = [str(tmp_path)]
+        win.settings.excluded_files = [str(f1.resolve())]
+        win.file_list = []
+
+        # Khi scan có excluded_files -> f1 không xuất hiện
+        win._rescan_files()
+        assert len(win.file_list) == 0
+
+        # Khôi phục tệp
+        monkeypatch.setattr(QMessageBox, "question", lambda *args, **kwargs: QMessageBox.StandardButton.Yes)
+        monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
+        win._restore_excluded_files()
+
+        # f1 phải xuất hiện lại trong bảng
+        assert len(win.file_list) == 1
+        assert win.file_list[0] == f1
+        assert len(win.settings.excluded_files) == 0
+

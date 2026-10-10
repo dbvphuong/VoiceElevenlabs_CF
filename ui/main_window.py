@@ -1,5 +1,6 @@
 """Cửa sổ chính của ứng dụng Desktop PyQt6 (MainWindow)."""
 
+import sys
 import os
 from pathlib import Path
 from typing import List, Dict, Optional
@@ -24,24 +25,37 @@ from ui.voice_dialog import VoiceSearchDialog
 from ui.log_widget import LogWidget, LogWindow
 from ui.bridge import PipelineBridgeThread, ProfileWarmerThread
 from network.voice_service import voice_service
+from network.tts_client import is_v4_model
 from captcha.profile_manager import profile_manager, PROFILES_DUNG_DIR
 
 class MainWindow(QMainWindow):
     """Giao diện chính mô phỏng và nâng cấp toàn diện từ C# WinForms Form1."""
 
-    def __init__(self):
+    def __init__(self, settings_path: Optional[Path | str] = None):
         super().__init__()
         self.setWindowTitle("11labs CF - Python Desktop")
         self.resize(1180, 840)
         self.setMinimumSize(1020, 720)
 
-        self.settings = AppSettings.load()
+        if settings_path:
+            self.settings_path = Path(settings_path)
+        else:
+            if getattr(sys, "frozen", False):
+                self.settings_path = Path(sys.executable).parent / "settings.json"
+            else:
+                self.settings_path = Path("settings.json")
+        self.settings = AppSettings.load(self.settings_path)
         self.bridge_thread: Optional[PipelineBridgeThread] = None
         self.warmer_thread: Optional[ProfileWarmerThread] = None
 
         self.file_list: List[Path] = []
         self.file_chunks_cache: Dict[int, List[dict]] = {}
         self.selected_file_index: int = -1
+        self._is_loading_ui: bool = False
+
+        self.chunk_page_size: int = 50
+        self.chunk_current_page: int = 1
+        self.chunk_total_pages: int = 1
 
         self.log_window = LogWindow(self)
         self._init_ui()
@@ -155,6 +169,7 @@ class MainWindow(QMainWindow):
         row_tmpl.addWidget(QLabel("Ngôn ngữ:"))
         self.combo_lang = QComboBox()
         self.combo_lang.addItems(["Tự động", "English (en)", "Tiếng Việt (vi)", "Japanese (ja)", "Chinese (zh)"])
+        self.combo_lang.currentIndexChanged.connect(self._on_voice_param_changed)
         row_tmpl.addWidget(self.combo_lang, 2)
 
         voice_layout.addLayout(row_tmpl)
@@ -165,27 +180,32 @@ class MainWindow(QMainWindow):
         self.num_speed = QDoubleSpinBox()
         self.num_speed.setRange(0.7, 1.2)
         self.num_speed.setSingleStep(0.05)
+        self.num_speed.valueChanged.connect(self._on_voice_param_changed)
         row_params.addWidget(self.num_speed)
 
         row_params.addWidget(QLabel("Ổn định (Stability):"))
         self.num_stab = QSpinBox()
         self.num_stab.setRange(0, 100)
         self.num_stab.setSuffix("%")
+        self.num_stab.valueChanged.connect(self._on_voice_param_changed)
         row_params.addWidget(self.num_stab)
 
         row_params.addWidget(QLabel("Tương đồng (Similarity):"))
         self.num_sim = QSpinBox()
         self.num_sim.setRange(0, 100)
         self.num_sim.setSuffix("%")
+        self.num_sim.valueChanged.connect(self._on_voice_param_changed)
         row_params.addWidget(self.num_sim)
 
         row_params.addWidget(QLabel("Phong cách (Style):"))
         self.num_style = QSpinBox()
         self.num_style.setRange(0, 100)
         self.num_style.setSuffix("%")
+        self.num_style.valueChanged.connect(self._on_voice_param_changed)
         row_params.addWidget(self.num_style)
 
         self.chk_boost = QCheckBox("Khuếch đại (Boost)")
+        self.chk_boost.toggled.connect(self._on_voice_param_changed)
         row_params.addWidget(self.chk_boost)
         row_params.addStretch()
 
@@ -243,7 +263,7 @@ class MainWindow(QMainWindow):
         self.table_files.setHorizontalHeaderLabels(["STT", "Đường dẫn file", "Mẫu giọng áp dụng", "Tiến độ", "Tệp đầu ra (Output)"])
         self.table_files.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.table_files.setColumnWidth(0, 45)
-        self.table_files.setColumnWidth(2, 160)
+        self.table_files.setColumnWidth(2, 210)
         self.table_files.setColumnWidth(3, 90)
         self.table_files.setColumnWidth(4, 185)
         self.table_files.verticalHeader().setVisible(False)
@@ -295,6 +315,69 @@ class MainWindow(QMainWindow):
         self.table_chunks.verticalHeader().setVisible(False)
         self.table_chunks.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         right_layout.addWidget(self.table_chunks)
+
+        # Thanh phân trang cho bảng Chunks (tối đa 50 dòng/trang)
+        chunk_pagination_box = QHBoxLayout()
+        chunk_pagination_box.setContentsMargins(2, 2, 2, 2)
+        chunk_pagination_box.setSpacing(6)
+
+        btn_page_style = """
+            QPushButton {
+                background-color: #EDE9FE;
+                color: #5B21B6;
+                font-weight: bold;
+                font-size: 11px;
+                border: 1px solid #C4B5FD;
+                border-radius: 4px;
+                padding: 4px 10px;
+            }
+            QPushButton:hover {
+                background-color: #DDD6FE;
+            }
+            QPushButton:disabled {
+                background-color: #F3F4F6;
+                color: #9CA3AF;
+                border: 1px solid #E5E7EB;
+            }
+        """
+
+        self.btn_first_chunk_page = QPushButton("« Đầu")
+        self.btn_first_chunk_page.setFixedHeight(26)
+        self.btn_first_chunk_page.setStyleSheet(btn_page_style)
+        self.btn_first_chunk_page.setToolTip("Về trang đầu tiên (đoạn 1–50)")
+        self.btn_first_chunk_page.clicked.connect(self._first_chunk_page)
+        chunk_pagination_box.addWidget(self.btn_first_chunk_page)
+
+        self.btn_prev_chunk_page = QPushButton("◀ Trước")
+        self.btn_prev_chunk_page.setFixedHeight(26)
+        self.btn_prev_chunk_page.setStyleSheet(btn_page_style)
+        self.btn_prev_chunk_page.setToolTip("Trang trước (50 đoạn trước)")
+        self.btn_prev_chunk_page.clicked.connect(self._prev_chunk_page)
+        chunk_pagination_box.addWidget(self.btn_prev_chunk_page)
+
+        self.lbl_chunk_page_info = QLabel("Trang 1/1 (0 đoạn)")
+        self.lbl_chunk_page_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_chunk_page_info.setStyleSheet(
+            "font-size: 11px; font-weight: bold; color: #4B5563; padding: 2px 6px; "
+            "background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 4px;"
+        )
+        chunk_pagination_box.addWidget(self.lbl_chunk_page_info, 1)
+
+        self.btn_next_chunk_page = QPushButton("Sau ▶")
+        self.btn_next_chunk_page.setFixedHeight(26)
+        self.btn_next_chunk_page.setStyleSheet(btn_page_style)
+        self.btn_next_chunk_page.setToolTip("Trang tiếp theo (50 đoạn kế)")
+        self.btn_next_chunk_page.clicked.connect(self._next_chunk_page)
+        chunk_pagination_box.addWidget(self.btn_next_chunk_page)
+
+        self.btn_last_chunk_page = QPushButton("Cuối »")
+        self.btn_last_chunk_page.setFixedHeight(26)
+        self.btn_last_chunk_page.setStyleSheet(btn_page_style)
+        self.btn_last_chunk_page.setToolTip("Đến trang cuối cùng")
+        self.btn_last_chunk_page.clicked.connect(self._last_chunk_page)
+        chunk_pagination_box.addWidget(self.btn_last_chunk_page)
+
+        right_layout.addLayout(chunk_pagination_box)
 
         splitter.addWidget(right_box)
         splitter.setSizes([600, 460])
@@ -493,21 +576,38 @@ class MainWindow(QMainWindow):
                 self.settings.selected_voice_template_name = "Frederick Surrey (Vũ trụ)"
             self.settings.save()
 
-        # 2. Nạp danh sách mẫu vào combobox
-        self._populate_templates_combo()
+        self._is_loading_ui = True
+        try:
+            # 2. Nạp danh sách mẫu vào combobox
+            self._populate_templates_combo()
 
-        # 3. Nạp thông số vào các ô nhập
-        self.txt_voice_id.setText(self.settings.voice_id)
-        self.combo_model.setCurrentIndex(max(0, min(len(MODEL_IDS) - 1, self.settings.model_index)))
-        self.combo_lang.setCurrentIndex(max(0, min(4, self.settings.lang_index)))
-        self.num_speed.setValue(self.settings.speed)
-        self.num_stab.setValue(self.settings.stability)
-        self.num_sim.setValue(self.settings.similarity)
-        self.num_style.setValue(self.settings.style)
-        self.chk_boost.setChecked(self.settings.speaker_boost)
+            # 3. Nạp thông số vào các ô nhập
+            self.txt_voice_id.setText(self.settings.voice_id)
+            self.combo_model.setCurrentIndex(max(0, min(len(MODEL_IDS) - 1, self.settings.model_index)))
+            self.combo_lang.setCurrentIndex(max(0, min(4, self.settings.lang_index)))
+            self.num_speed.setValue(self.settings.speed)
+            self.num_stab.setValue(self.settings.stability)
+            self.num_sim.setValue(self.settings.similarity)
+            self.num_style.setValue(self.settings.style)
+            self.chk_boost.setChecked(self.settings.speaker_boost)
 
-        # 4. Cập nhật nhãn Tên giọng
-        self._update_voice_info_display(self.settings.voice_id)
+            # 4. Cập nhật nhãn Tên giọng
+            self._update_voice_info_display(self.settings.voice_id)
+        finally:
+            self._is_loading_ui = False
+
+    def _save_settings(self):
+        """Lưu cấu hình hệ thống ra file JSON theo self.settings_path."""
+        if hasattr(self, 'file_list'):
+            excluded_set = {str(Path(ex).resolve()).lower() for ex in self.settings.excluded_files}
+            customs = []
+            for f in self.file_list:
+                f_str = str(f.resolve())
+                if f_str.lower() not in excluded_set and f_str not in customs:
+                    customs.append(f_str)
+            self.settings.custom_files = customs
+
+        self.settings.save(self.settings_path)
 
     def _save_ui_to_settings(self):
         self.settings.voice_id = self.txt_voice_id.text().strip()
@@ -519,7 +619,9 @@ class MainWindow(QMainWindow):
         self.settings.style = self.num_style.value()
         self.settings.speaker_boost = self.chk_boost.isChecked()
         self.settings.scan_subfolders = self.chk_subfolders.isChecked()
-        self.settings.save()
+        if hasattr(self, 'spn_thread_count'):
+            self.settings.thread_count = self.spn_thread_count.value()
+        self._save_settings()
 
     def _update_voice_name_badge(self, voice_info: Optional[dict]):
         if voice_info:
@@ -667,6 +769,9 @@ class MainWindow(QMainWindow):
 
     def _on_template_selected(self, index: int):
         """Khi người dùng chọn một mẫu giọng từ combobox."""
+        if self._is_loading_ui:
+            return
+
         if index <= 0:
             self.settings.selected_voice_template_name = ""
             return
@@ -677,14 +782,18 @@ class MainWindow(QMainWindow):
             self.settings.selected_voice_template_name = tmpl.name
 
             # Đổ dữ liệu mẫu vào giao diện
-            self.txt_voice_id.setText(tmpl.voice_id)
-            self.combo_model.setCurrentIndex(max(0, min(len(MODEL_IDS) - 1, tmpl.model_index)))
-            self.combo_lang.setCurrentIndex(max(0, min(4, tmpl.lang_index)))
-            self.num_speed.setValue(tmpl.speed)
-            self.num_style.setValue(tmpl.style)
-            self.num_stab.setValue(tmpl.stability)
-            self.num_sim.setValue(tmpl.similarity)
-            self.chk_boost.setChecked(tmpl.speaker_boost)
+            self._is_loading_ui = True
+            try:
+                self.txt_voice_id.setText(tmpl.voice_id)
+                self.combo_model.setCurrentIndex(max(0, min(len(MODEL_IDS) - 1, tmpl.model_index)))
+                self.combo_lang.setCurrentIndex(max(0, min(4, tmpl.lang_index)))
+                self.num_speed.setValue(tmpl.speed)
+                self.num_style.setValue(tmpl.style)
+                self.num_stab.setValue(tmpl.stability)
+                self.num_sim.setValue(tmpl.similarity)
+                self.chk_boost.setChecked(tmpl.speaker_boost)
+            finally:
+                self._is_loading_ui = False
 
             # Cập nhật tên giọng
             cached = voice_service.get_cached_voice(tmpl.voice_id)
@@ -697,17 +806,67 @@ class MainWindow(QMainWindow):
             self._update_files_table()
 
     def _on_model_changed(self, index: int):
-        """Cảnh báo khi người dùng chọn Model v4 mà không có gói trả phí."""
-        if 0 <= index < len(MODEL_IDS):
-            m_id = MODEL_IDS[index]
-            if m_id in ("eleven_v4", "eleven_v4_turbo"):
-                QMessageBox.warning(
-                    self,
-                    "Lưu ý Model v4",
-                    f"Mô hình '{m_id}' yêu cầu tài khoản trả phí (Paid Plan) kèm API Key của ElevenLabs.\n\n"
-                    "Cơ chế tạo miễn phí (Free) qua hCaptcha không hỗ trợ Model v4.\n"
-                    "👉 Nếu dùng Free, vui lòng chọn 'eleven_multilingual_v2' (chuẩn nhất cho tiếng Việt/Anh) hoặc 'eleven_flash_v2' / 'eleven_turbo_v2'."
-                )
+        """Khi người dùng thay đổi Model trên giao diện."""
+        if self._is_loading_ui:
+            return
+
+        if not (0 <= index < len(MODEL_IDS)):
+            return
+
+        m_id = MODEL_IDS[index]
+        self.settings.model_index = index
+
+        # Cảnh báo khi người dùng chọn Model v4 mà không có gói trả phí
+        if m_id in ("eleven_v4", "eleven_v4_turbo"):
+            QMessageBox.warning(
+                self,
+                "Lưu ý Model v4",
+                f"Mô hình '{m_id}' yêu cầu tài khoản trả phí (Paid Plan) kèm API Key của ElevenLabs.\n\n"
+                "Cơ chế tạo miễn phí (Free) qua hCaptcha không hỗ trợ Model v4.\n"
+                "👉 Nếu dùng Free, vui lòng chọn 'eleven_multilingual_v2' (chuẩn nhất cho tiếng Việt/Anh) hoặc 'eleven_flash_v2' / 'eleven_turbo_v2'."
+            )
+
+        # Cập nhật model_index cho template đang chọn (nếu có)
+        active_tmpl_name = self.settings.selected_voice_template_name
+        if active_tmpl_name:
+            for vt in self.settings.voice_templates:
+                if vt.name.lower() == active_tmpl_name.lower():
+                    vt.model_index = index
+                    break
+
+        # Đồng bộ model_index cho các tệp đang dùng template này hoặc chưa có template riêng
+        for fvp in self.settings.file_voice_profiles:
+            if not fvp.voice.name or (active_tmpl_name and fvp.voice.name.lower() == active_tmpl_name.lower()) or fvp.voice.name in ("Mặc định", "Tùy chỉnh"):
+                fvp.voice.model_index = index
+
+        self._save_settings()
+        self._update_files_table()
+
+    def _on_voice_param_changed(self):
+        """Khi người dùng thay đổi bất kỳ thông số giọng nào (ngôn ngữ, tốc độ, ổn định, tương đồng, style, boost)."""
+        if self._is_loading_ui:
+            return
+
+        self.settings.lang_index = self.combo_lang.currentIndex()
+        self.settings.speed = self.num_speed.value()
+        self.settings.stability = self.num_stab.value()
+        self.settings.similarity = self.num_sim.value()
+        self.settings.style = self.num_style.value()
+        self.settings.speaker_boost = self.chk_boost.isChecked()
+
+        active_tmpl_name = self.settings.selected_voice_template_name
+        if active_tmpl_name:
+            for vt in self.settings.voice_templates:
+                if vt.name.lower() == active_tmpl_name.lower():
+                    vt.lang_index = self.settings.lang_index
+                    vt.speed = self.settings.speed
+                    vt.stability = self.settings.stability
+                    vt.similarity = self.settings.similarity
+                    vt.style = self.settings.style
+                    vt.speaker_boost = self.settings.speaker_boost
+                    break
+
+        self._save_settings()
 
     def _on_save_template_clicked(self):
         """Lưu toàn bộ thông số giọng hiện tại thành mẫu mới hoặc cập nhật mẫu đã có."""
@@ -832,7 +991,7 @@ class MainWindow(QMainWindow):
             )
         )
         if save:
-            self.settings.save()
+            self._save_settings()
 
     def _has_file_voice(self, file_path: Path) -> bool:
         """Kiểm tra tệp đã có cấu hình mẫu giọng riêng chưa."""
@@ -849,7 +1008,7 @@ class MainWindow(QMainWindow):
         """Gán mẫu giọng hàng loạt cho nhiều tệp đang chọn."""
         for f in files:
             self._assign_voice_to_file(f, template, save=False)
-        self.settings.save()
+        self._save_settings()
         self._update_files_table()
         msg = (
             f"Đã gán mẫu giọng '{template.name}' cho {len(files)} tệp."
@@ -857,6 +1016,38 @@ class MainWindow(QMainWindow):
             else f"Đã gán mẫu giọng '{template.name}' cho tệp {files[0].name}."
         )
         QMessageBox.information(self, "Thành công", msg)
+
+    def _assign_model_to_multiple_files(self, files: List[Path], model_index: int):
+        """Gán Model cho danh sách tệp cụ thể."""
+        target_resolved = {str(f.resolve()).lower(): f for f in files}
+        for fvp in self.settings.file_voice_profiles:
+            if fvp.file_path and str(Path(fvp.file_path).resolve()).lower() in target_resolved:
+                fvp.voice.model_index = model_index
+
+        for f in files:
+            if not self._has_file_voice(f):
+                prof = self._resolve_voice_profile_for_file(f).model_copy()
+                prof.model_index = model_index
+                self._assign_voice_to_file(f, prof, save=False)
+
+        self._save_settings()
+        self._update_files_table()
+        m_name = MODEL_IDS[model_index] if 0 <= model_index < len(MODEL_IDS) else str(model_index)
+        QMessageBox.information(self, "Đã đổi Model", f"Đã áp dụng Model '{m_name}' cho {len(files)} tệp.")
+
+    def _apply_model_to_all_files(self, model_index: int):
+        """Áp dụng Model cho toàn bộ tệp trong danh sách."""
+        if not self.file_list:
+            QMessageBox.information(self, "Thông báo", "Danh sách tệp đang trống.")
+            return
+        self._assign_model_to_multiple_files(self.file_list, model_index)
+
+    def _apply_voice_to_all_files(self, voice: VoiceTemplate):
+        """Áp dụng mẫu giọng cho toàn bộ tệp trong danh sách."""
+        if not self.file_list:
+            QMessageBox.information(self, "Thông báo", "Danh sách tệp đang trống.")
+            return
+        self._assign_voice_to_multiple_files(self.file_list, voice)
 
     def _table_files_key_press(self, event):
         """Xử lý phím tắt khi người dùng tương tác trên bảng danh sách tệp (Delete / Backspace để xóa hàng)."""
@@ -918,7 +1109,16 @@ class MainWindow(QMainWindow):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         if reply == QMessageBox.StandardButton.Yes:
+            excluded_set = {str(Path(ex).resolve()).lower() for ex in self.settings.excluded_files}
+            for f in self.file_list:
+                f_str = str(f.resolve())
+                if f_str.lower() not in excluded_set:
+                    self.settings.excluded_files.append(f_str)
+                    excluded_set.add(f_str.lower())
             self.file_list.clear()
+            if hasattr(self.settings, 'custom_files'):
+                self.settings.custom_files.clear()
+            self._save_settings()
             self._update_files_table()
 
     def _delete_files_from_disk(self, files: List[Path]):
@@ -958,6 +1158,13 @@ class MainWindow(QMainWindow):
                 logger.error(f"Lỗi khi xóa tệp {f} trên ổ cứng: {e}")
                 failed_count += 1
 
+        # Xóa cả trong excluded_files nếu có
+        target_resolved = {str(f.resolve()).lower() for f in files}
+        self.settings.excluded_files = [
+            ex for ex in self.settings.excluded_files
+            if str(Path(ex).resolve()).lower() not in target_resolved
+        ]
+
         self._remove_multiple_files_from_list(files)
         if failed_count == 0:
             QMessageBox.information(self, "Đã xóa tệp", f"Đã xóa thành công {deleted_count} tệp .txt trên ổ cứng.")
@@ -965,7 +1172,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Kết quả xóa", f"Đã xóa {deleted_count} tệp, gặp lỗi {failed_count} tệp (có thể do tệp đang mở).")
 
     def _remove_multiple_files_from_list(self, files: List[Path], next_selected_index: Optional[int] = None):
-        """Xóa nhiều tệp khỏi danh sách và xóa luôn cấu hình voice riêng."""
+        """Xóa nhiều tệp khỏi danh sách, ghi nhớ vào excluded_files và xóa cấu hình voice riêng."""
         target_resolved = {str(f.resolve()).lower() for f in files}
         self.file_list = [
             f for f in self.file_list
@@ -975,7 +1182,21 @@ class MainWindow(QMainWindow):
             fvp for fvp in self.settings.file_voice_profiles
             if str(Path(fvp.file_path).resolve()).lower() not in target_resolved
         ]
-        self.settings.save()
+        if hasattr(self.settings, 'custom_files'):
+            self.settings.custom_files = [
+                cf for cf in self.settings.custom_files
+                if str(Path(cf).resolve()).lower() not in target_resolved
+            ]
+
+        # Ghi nhớ các file này vào danh sách loại trừ để khi mở lại app không bị quét nạp lại
+        excluded_set = {str(Path(ex).resolve()).lower() for ex in self.settings.excluded_files}
+        for f in files:
+            f_str = str(f.resolve())
+            if f_str.lower() not in excluded_set:
+                self.settings.excluded_files.append(f_str)
+                excluded_set.add(f_str.lower())
+
+        self._save_settings()
         if next_selected_index is not None:
             self.selected_file_index = next_selected_index
         self._update_files_table()
@@ -1024,9 +1245,17 @@ class MainWindow(QMainWindow):
             if fvp.file_path:
                 try:
                     if str(Path(fvp.file_path).resolve()).lower() == file_resolved:
+                        if fvp.voice.name:
+                            for vt in self.settings.voice_templates:
+                                if vt.name.lower() == fvp.voice.name.lower():
+                                    return vt
                         return fvp.voice
                 except Exception:
                     if fvp.file_path.lower() == file_resolved:
+                        if fvp.voice.name:
+                            for vt in self.settings.voice_templates:
+                                if vt.name.lower() == fvp.voice.name.lower():
+                                    return vt
                         return fvp.voice
 
         # 2. Kiểm tra FolderVoiceProfiles
@@ -1036,6 +1265,10 @@ class MainWindow(QMainWindow):
                 try:
                     p_folder = str(Path(fvp.folder_path).resolve()).lower()
                     if file_dir == p_folder or file_dir.startswith(p_folder + "\\") or file_dir.startswith(p_folder + "/"):
+                        if fvp.voice.name:
+                            for vt in self.settings.voice_templates:
+                                if vt.name.lower() == fvp.voice.name.lower():
+                                    return vt
                         return fvp.voice
                 except Exception:
                     pass
@@ -1043,8 +1276,8 @@ class MainWindow(QMainWindow):
         # 3. Fallback: Nếu file chưa có mẫu riêng thì dùng mẫu đang chọn trên UI
         if self.settings.selected_voice_template_name:
             for vt in self.settings.voice_templates:
-                if vt.name == self.settings.selected_voice_template_name:
-                    return vt
+                if vt.name.lower() == self.settings.selected_voice_template_name.lower():
+                    return vt.model_copy()
 
         return VoiceTemplate(
             name="Mặc định",
@@ -1149,6 +1382,27 @@ class MainWindow(QMainWindow):
 
         menu.addSeparator()
 
+        # 2b. Đổi Model cho (các) tệp đang chọn
+        curr_model_idx = self.combo_model.currentIndex()
+        curr_model_name = MODEL_IDS[curr_model_idx] if 0 <= curr_model_idx < len(MODEL_IDS) else "eleven_multilingual_v2"
+        sub_menu_model = menu.addMenu(f"⚡ Đổi Model cho {label_target}")
+        act_curr_model = sub_menu_model.addAction(f"Áp dụng Model trên thanh công cụ ({curr_model_name})")
+        act_curr_model.triggered.connect(lambda checked, flist=target_files, midx=curr_model_idx: self._assign_model_to_multiple_files(flist, midx))
+        sub_menu_model.addSeparator()
+        for idx, m_name in enumerate(MODEL_IDS):
+            act_m = sub_menu_model.addAction(m_name)
+            act_m.triggered.connect(lambda checked, flist=target_files, midx=idx: self._assign_model_to_multiple_files(flist, midx))
+
+        # 2c. Áp dụng cho TOÀN BỘ danh sách tệp
+        if len(self.file_list) > 1:
+            active_tmpl_name = self.settings.selected_voice_template_name or "Mặc định"
+            act_all_model = menu.addAction(f"⚡ Áp dụng Model '{curr_model_name}' cho TOÀN BỘ tệp")
+            act_all_model.triggered.connect(lambda checked, midx=curr_model_idx: self._apply_model_to_all_files(midx))
+            act_all_voice = menu.addAction(f"🎙 Áp dụng Mẫu giọng '{active_tmpl_name}' cho TOÀN BỘ tệp")
+            act_all_voice.triggered.connect(lambda checked: self._apply_voice_to_all_files(self._get_current_active_voice_template()))
+
+        menu.addSeparator()
+
         # 3. Gán mẫu giọng cho thư mục chứa file
         sub_menu_assign = menu.addMenu(f"📁 Gán mẫu giọng cho toàn bộ thư mục: {file_path.parent.name}")
         for tmpl in self.settings.voice_templates:
@@ -1175,6 +1429,11 @@ class MainWindow(QMainWindow):
             action_clear = menu.addAction("🧹 Xóa toàn bộ danh sách (Làm trống bảng)")
             action_clear.triggered.connect(self._clear_all_files)
 
+        # 6b. Khôi phục các tệp đã xóa khỏi danh sách
+        if self.settings.excluded_files:
+            action_restore = menu.addAction(f"🔄 Khôi phục {len(self.settings.excluded_files)} tệp đã xóa khỏi danh sách...")
+            action_restore.triggered.connect(self._restore_excluded_files)
+
         menu.addSeparator()
 
         # 7. Xóa vĩnh viễn tệp trên đĩa
@@ -1182,6 +1441,21 @@ class MainWindow(QMainWindow):
         action_del_disk.triggered.connect(lambda: self._delete_files_from_disk(target_files))
 
         menu.exec(self.table_files.viewport().mapToGlobal(pos))
+
+    def _restore_excluded_files(self):
+        """Khôi phục lại các tệp đã xóa khỏi danh sách và quét lại từ thư mục."""
+        count = len(self.settings.excluded_files)
+        reply = QMessageBox.question(
+            self,
+            "Khôi phục tệp",
+            f"Bạn có muốn khôi phục lại {count} tệp đã xóa khỏi danh sách trước đây không?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self.settings.excluded_files.clear()
+            self._save_settings()
+            self._rescan_files()
+            QMessageBox.information(self, "Đã khôi phục", "Đã khôi phục và nạp lại toàn bộ tệp từ thư mục.")
 
     def _assign_folder_template(self, folder_path: Path, template: VoiceTemplate):
         folder_str = str(folder_path.resolve())
@@ -1193,7 +1467,7 @@ class MainWindow(QMainWindow):
         self.settings.folder_voice_profiles.append(
             FolderVoiceProfile(folder_path=folder_str, voice=template)
         )
-        self.settings.save()
+        self._save_settings()
         self._update_files_table()
         QMessageBox.information(
             self,
@@ -1206,7 +1480,7 @@ class MainWindow(QMainWindow):
             f for f in self.settings.folder_voice_profiles
             if Path(f.folder_path).resolve() != folder_path.resolve()
         ]
-        self.settings.save()
+        self._save_settings()
         self._update_files_table()
         QMessageBox.information(
             self,
@@ -1233,12 +1507,14 @@ class MainWindow(QMainWindow):
         if folder:
             if folder not in self.settings.folders:
                 self.settings.folders.append(folder)
-                self.settings.folder = folder
-                self.settings.save()
+            self.settings.folder = folder
+            self._save_settings()
+
             active_voice = self._get_current_active_voice_template()
             new_files = collect_txt_files(
                 folders=[folder],
-                include_subfolders=self.chk_subfolders.isChecked()
+                include_subfolders=self.chk_subfolders.isChecked(),
+                excluded_files=self.settings.excluded_files
             )
             for f in new_files:
                 p = Path(f).resolve()
@@ -1246,36 +1522,103 @@ class MainWindow(QMainWindow):
                     self.file_list.append(p)
                 if not self._has_file_voice(p):
                     self._assign_voice_to_file(p, active_voice, save=False)
-            self.settings.save()
+            self._save_settings()
             self._update_files_table()
 
     def _add_file(self):
         files, _ = QFileDialog.getOpenFileNames(self, "Chọn tệp văn bản .txt", "", "Text Files (*.txt)")
         if files:
             active_voice = self._get_current_active_voice_template()
+            added_set = {str(Path(f).resolve()).lower() for f in files}
+            # Nếu người dùng chủ động nạp tệp bằng tay, gỡ bỏ tệp đó khỏi danh sách loại trừ
+            self.settings.excluded_files = [
+                ex for ex in self.settings.excluded_files
+                if str(Path(ex).resolve()).lower() not in added_set
+            ]
             for f in files:
                 p = Path(f).resolve()
                 if p not in self.file_list:
                     self.file_list.append(p)
+                f_str = str(p)
+                if f_str not in self.settings.custom_files:
+                    self.settings.custom_files.append(f_str)
                 # Mỗi lần thêm file lẻ, gán mẫu giọng tại thời điểm thêm
                 self._assign_voice_to_file(p, active_voice, save=False)
-            self.settings.save()
+            self._save_settings()
             self._update_files_table()
 
-    def _rescan_files(self):
-        folders = self.settings.folders if self.settings.folders else ([self.settings.folder] if self.settings.folder else [])
-        if folders:
+    def _rescan_files(self, clear_excluded: bool = False):
+        if clear_excluded:
+            self.settings.excluded_files.clear()
+            self._save_settings()
+
+        excluded_set = {str(Path(ex).resolve()).lower() for ex in self.settings.excluded_files}
+
+        # 1. Thu thập tất cả các thư mục hợp lệ (loại bỏ thư mục temp)
+        candidate_folders = []
+        if self.settings.folders:
+            for f in self.settings.folders:
+                if f and Path(f).exists() and Path(f).is_dir():
+                    f_res = str(Path(f).resolve())
+                    if f_res not in candidate_folders:
+                        candidate_folders.append(f_res)
+        if self.settings.folder and Path(self.settings.folder).exists() and Path(self.settings.folder).is_dir():
+            f_res = str(Path(self.settings.folder).resolve())
+            if f_res not in candidate_folders:
+                candidate_folders.append(f_res)
+
+        self.settings.folders = candidate_folders
+
+        scanned = []
+        if candidate_folders:
             scanned = collect_txt_files(
-                folders=folders,
-                include_subfolders=self.chk_subfolders.isChecked()
+                folders=candidate_folders,
+                include_subfolders=self.chk_subfolders.isChecked(),
+                excluded_files=self.settings.excluded_files
             )
-            active_voice = self._get_current_active_voice_template()
-            for p in scanned:
-                if p not in self.file_list:
-                    self.file_list.append(p)
-                if not self._has_file_voice(p):
-                    self._assign_voice_to_file(p, active_voice, save=False)
-            self.settings.save()
+
+        # 2. Thu thập các tệp lẻ đã thêm (từ custom_files và file_voice_profiles)
+        extra_files = []
+        if hasattr(self.settings, 'custom_files') and self.settings.custom_files:
+            for cf in self.settings.custom_files:
+                p = Path(cf)
+                if p.exists() and p.is_file() and str(p.resolve()).lower() not in excluded_set:
+                    p_res = p.resolve()
+                    if p_res not in extra_files:
+                        extra_files.append(p_res)
+
+        for fvp in self.settings.file_voice_profiles:
+            if fvp.file_path:
+                p = Path(fvp.file_path)
+                if p.exists() and p.is_file() and str(p.resolve()).lower() not in excluded_set:
+                    p_res = p.resolve()
+                    if p_res not in extra_files:
+                        extra_files.append(p_res)
+
+        # 3. Giữ lại các file đang có nếu hợp lệ
+        existing_valid = [f for f in self.file_list if f.exists() and str(f.resolve()).lower() not in excluded_set]
+
+        # 4. Hợp nhất tất cả các tệp
+        all_files = []
+        for p in scanned:
+            if p not in all_files:
+                all_files.append(p)
+        for p in extra_files:
+            if p not in all_files:
+                all_files.append(p)
+        for p in existing_valid:
+            if p not in all_files:
+                all_files.append(p)
+
+        self.file_list = all_files
+
+        # 5. Gán voice profile nếu file chưa có
+        active_voice = self._get_current_active_voice_template()
+        for p in self.file_list:
+            if not self._has_file_voice(p):
+                self._assign_voice_to_file(p, active_voice, save=False)
+
+        self._save_settings()
         self._update_files_table()
 
     def _get_file_chunks(self, file_idx: int, file_path: Path) -> List[dict]:
@@ -1292,7 +1635,23 @@ class MainWindow(QMainWindow):
             out_exists = out_mp3.exists() and out_mp3.stat().st_size > 0
 
             for c_idx, text in enumerate(chunks):
-                part_path = chunk_dir / f"part_{c_idx}.mp3"
+                stt = c_idx + 1
+                part_path = chunk_dir / f"{stt}.mp3"
+                if not part_path.exists():
+                    old_candidates = [
+                        chunk_dir / f"part_{c_idx}.mp3",
+                        chunk_dir / f"part_{stt}.mp3",
+                        chunk_dir / f"Part_{c_idx}.mp3",
+                        chunk_dir / f"Part_{stt}.mp3",
+                    ]
+                    for old_p in old_candidates:
+                        if old_p.exists() and old_p.stat().st_size > 0:
+                            try:
+                                old_p.rename(part_path)
+                                break
+                            except Exception:
+                                pass
+
                 part_exists = part_path.exists() and part_path.stat().st_size > 0
                 is_done = out_exists or part_exists
                 note = "Đã có trong tệp MP3 hoàn chỉnh." if out_exists else ("Đoạn MP3 đã có sẵn." if part_exists else "")
@@ -1328,12 +1687,22 @@ class MainWindow(QMainWindow):
             # Cột 2: Mẫu giọng áp dụng
             voice_prof = self._resolve_voice_profile_for_file(file_path)
             tmpl_name = voice_prof.name if voice_prof.name else (self.settings.selected_voice_template_name or "Mặc định")
-            item_voice = QTableWidgetItem(f"🎙 {tmpl_name}")
+            m_idx = voice_prof.model_index
+            m_id = MODEL_IDS[m_idx] if 0 <= m_idx < len(MODEL_IDS) else "eleven_multilingual_v2"
+            short_model = "v2" if m_id == "eleven_multilingual_v2" else ("v4" if m_id == "eleven_v4" else m_id.replace("eleven_", ""))
+
+            item_voice = QTableWidgetItem(f"🎙 {tmpl_name} [{short_model}]")
+            if is_v4_model(m_idx):
+                item_voice.setForeground(QColor("#D97706"))
+            else:
+                item_voice.setForeground(QColor("#4C1D95"))
+
             item_voice.setToolTip(
                 f"Mẫu giọng: {tmpl_name}\n"
+                f"Model: {m_id} (Index {m_idx})\n"
                 f"Voice ID: {voice_prof.voice_id}\n"
                 f"Tốc độ: {voice_prof.speed}x | Ổn định: {voice_prof.stability}% | Tương đồng: {voice_prof.similarity}%\n"
-                f"(Nhấp đúp chuột hoặc click chuột phải để đổi mẫu giọng)"
+                f"(Nhấp đúp chuột hoặc click chuột phải để đổi mẫu giọng hoặc Model)"
             )
             self.table_files.setItem(row, 2, item_voice)
 
@@ -1391,41 +1760,104 @@ class MainWindow(QMainWindow):
         else:
             self.selected_file_index = -1
             self.table_chunks.setRowCount(0)
+            self.chunk_current_page = 1
+            self.chunk_total_pages = 1
+            self._update_chunk_pagination_controls(0)
             self.lbl_selected_file.setText("Chi tiết đoạn văn bản (Danh sách đang trống)")
             self.lbl_stats.setText("Tổng: 0 đoạn | Hoàn thành: 0")
             self.progress_bar.setValue(0)
 
     def _on_file_selected(self, row: int, col: int):
         if 0 <= row < len(self.file_list):
+            if row != self.selected_file_index:
+                self.chunk_current_page = 1
             self.selected_file_index = row
             file_path = self.file_list[row]
             self.lbl_selected_file.setText(f"Chi tiết các đoạn: {file_path.name}")
             self._render_chunks_for_file(row)
 
-    def _render_chunks_for_file(self, file_idx: int):
+    def _first_chunk_page(self):
+        if self.chunk_current_page > 1:
+            self._render_chunks_for_file(self.selected_file_index, page=1)
+
+    def _prev_chunk_page(self):
+        if self.chunk_current_page > 1:
+            self._render_chunks_for_file(self.selected_file_index, page=self.chunk_current_page - 1)
+
+    def _next_chunk_page(self):
+        if self.chunk_current_page < self.chunk_total_pages:
+            self._render_chunks_for_file(self.selected_file_index, page=self.chunk_current_page + 1)
+
+    def _last_chunk_page(self):
+        if self.chunk_current_page < self.chunk_total_pages:
+            self._render_chunks_for_file(self.selected_file_index, page=self.chunk_total_pages)
+
+    def _update_chunk_pagination_controls(self, total_chunks: int):
+        if total_chunks <= 0:
+            self.lbl_chunk_page_info.setText("Trang 1/1 (0 đoạn)")
+            self.btn_first_chunk_page.setEnabled(False)
+            self.btn_prev_chunk_page.setEnabled(False)
+            self.btn_next_chunk_page.setEnabled(False)
+            self.btn_last_chunk_page.setEnabled(False)
+            return
+
+        start_num = (self.chunk_current_page - 1) * self.chunk_page_size + 1
+        end_num = min(self.chunk_current_page * self.chunk_page_size, total_chunks)
+
+        self.lbl_chunk_page_info.setText(
+            f"Trang {self.chunk_current_page}/{self.chunk_total_pages} (Đoạn {start_num}–{end_num} / {total_chunks})"
+        )
+        self.btn_first_chunk_page.setEnabled(self.chunk_current_page > 1)
+        self.btn_prev_chunk_page.setEnabled(self.chunk_current_page > 1)
+        self.btn_next_chunk_page.setEnabled(self.chunk_current_page < self.chunk_total_pages)
+        self.btn_last_chunk_page.setEnabled(self.chunk_current_page < self.chunk_total_pages)
+
+    def _render_chunks_for_file(self, file_idx: int, page: Optional[int] = None):
         self.table_chunks.setRowCount(0)
-        if 0 <= file_idx < len(self.file_list):
-            cached_chunks = self._get_file_chunks(file_idx, self.file_list[file_idx])
-            for c_idx, chunk_info in enumerate(cached_chunks):
-                r = self.table_chunks.rowCount()
-                self.table_chunks.insertRow(r)
+        if not (0 <= file_idx < len(self.file_list)):
+            self.chunk_current_page = 1
+            self.chunk_total_pages = 1
+            self._update_chunk_pagination_controls(0)
+            return
 
-                item_c_stt = QTableWidgetItem(str(c_idx + 1))
-                item_c_stt.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                self.table_chunks.setItem(r, 0, item_c_stt)
+        cached_chunks = self._get_file_chunks(file_idx, self.file_list[file_idx])
+        total_chunks = len(cached_chunks)
 
-                self.table_chunks.setItem(r, 1, QTableWidgetItem(chunk_info["text"]))
+        self.chunk_total_pages = max(1, (total_chunks + self.chunk_page_size - 1) // self.chunk_page_size) if total_chunks > 0 else 1
+        if page is not None:
+            self.chunk_current_page = max(1, min(page, self.chunk_total_pages))
+        else:
+            self.chunk_current_page = max(1, min(self.chunk_current_page, self.chunk_total_pages))
 
-                item_status = QTableWidgetItem(chunk_info["status"])
-                if chunk_info["status"] == "Hoàn thành":
-                    item_status.setForeground(QColor("#16A34A"))
-                elif chunk_info["status"] == "Đang xử lý":
-                    item_status.setForeground(QColor("#2563EB"))
-                elif chunk_info["status"] == "Lỗi":
-                    item_status.setForeground(QColor("#DC2626"))
-                self.table_chunks.setItem(r, 2, item_status)
+        self._update_chunk_pagination_controls(total_chunks)
 
-                self.table_chunks.setItem(r, 3, QTableWidgetItem(chunk_info["note"]))
+        if total_chunks == 0:
+            return
+
+        start_idx = (self.chunk_current_page - 1) * self.chunk_page_size
+        end_idx = min(start_idx + self.chunk_page_size, total_chunks)
+
+        for c_idx in range(start_idx, end_idx):
+            chunk_info = cached_chunks[c_idx]
+            r = self.table_chunks.rowCount()
+            self.table_chunks.insertRow(r)
+
+            item_c_stt = QTableWidgetItem(str(c_idx + 1))
+            item_c_stt.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.table_chunks.setItem(r, 0, item_c_stt)
+
+            self.table_chunks.setItem(r, 1, QTableWidgetItem(chunk_info["text"]))
+
+            item_status = QTableWidgetItem(chunk_info["status"])
+            if chunk_info["status"] == "Hoàn thành":
+                item_status.setForeground(QColor("#16A34A"))
+            elif chunk_info["status"] == "Đang xử lý":
+                item_status.setForeground(QColor("#2563EB"))
+            elif chunk_info["status"] == "Lỗi":
+                item_status.setForeground(QColor("#DC2626"))
+            self.table_chunks.setItem(r, 2, item_status)
+
+            self.table_chunks.setItem(r, 3, QTableWidgetItem(chunk_info["note"]))
 
     def _update_profile_count_display(self):
         """Cập nhật nhãn số lượng profile có sẵn trong profiles_dung."""
@@ -1486,6 +1918,22 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Chú ý", "Không có tệp .txt nào trong danh sách!")
             return
 
+        all_completed = True
+        for fp in self.file_list:
+            out_p = self._get_output_mp3_path(fp)
+            if not (out_p.exists() and out_p.stat().st_size > 0):
+                all_completed = False
+                break
+
+        if all_completed:
+            QMessageBox.information(
+                self,
+                "Đã hoàn thành",
+                "Tất cả các tệp trong danh sách đều đã tạo xong file MP3 hoàn chỉnh!\n"
+                "Không có đoạn nào cần tạo mới. Tiến trình sẽ không khởi chạy."
+            )
+            return
+
         self._save_ui_to_settings()
         self.btn_start_voice.setEnabled(False)
         self.btn_start_both.setEnabled(False)
@@ -1511,9 +1959,25 @@ class MainWindow(QMainWindow):
         self.bridge_thread.start()
 
     def _start_both(self):
-        """Chạy quy trình khép kín 1 luồng: Nuôi Profile trực tiếp trên IP xoay -> Tạo Voice ngay trên chính IP đó."""
+        """Chạy quy trình khép kín: Nuôi Profile trực tiếp trên IP xoay -> Tạo Voice ngay trên chính IP đó."""
         if not self.file_list:
             QMessageBox.warning(self, "Chú ý", "Không có tệp .txt nào trong danh sách để tạo voice!")
+            return
+
+        all_completed = True
+        for fp in self.file_list:
+            out_p = self._get_output_mp3_path(fp)
+            if not (out_p.exists() and out_p.stat().st_size > 0):
+                all_completed = False
+                break
+
+        if all_completed:
+            QMessageBox.information(
+                self,
+                "Đã hoàn thành",
+                "Tất cả các tệp trong danh sách đều đã tạo xong file MP3 hoàn chỉnh!\n"
+                "Không có đoạn nào cần tạo mới. Tiến trình sẽ không khởi chạy."
+            )
             return
 
         self._save_ui_to_settings()
@@ -1577,17 +2041,22 @@ class MainWindow(QMainWindow):
                 cache[chunk_idx]["status"] = status
                 cache[chunk_idx]["note"] = note
 
-        # Nếu file đang được chọn trên màn hình, cập nhật trực tiếp dòng bảng
-        if file_idx == self.selected_file_index and chunk_idx < self.table_chunks.rowCount():
-            item_status = QTableWidgetItem(status)
-            if status == "Hoàn thành":
-                item_status.setForeground(QColor("#16A34A"))
-            elif status == "Đang xử lý":
-                item_status.setForeground(QColor("#2563EB"))
-            elif status == "Lỗi":
-                item_status.setForeground(QColor("#DC2626"))
-            self.table_chunks.setItem(chunk_idx, 2, item_status)
-            self.table_chunks.setItem(chunk_idx, 3, QTableWidgetItem(note))
+        # Nếu file đang được chọn trên màn hình, cập nhật trực tiếp dòng bảng trên trang hiện tại
+        if file_idx == self.selected_file_index:
+            start_idx = (self.chunk_current_page - 1) * self.chunk_page_size
+            end_idx = start_idx + self.chunk_page_size
+            if start_idx <= chunk_idx < end_idx:
+                table_row = chunk_idx - start_idx
+                if table_row < self.table_chunks.rowCount():
+                    item_status = QTableWidgetItem(status)
+                    if status == "Hoàn thành":
+                        item_status.setForeground(QColor("#16A34A"))
+                    elif status == "Đang xử lý":
+                        item_status.setForeground(QColor("#2563EB"))
+                    elif status == "Lỗi":
+                        item_status.setForeground(QColor("#DC2626"))
+                    self.table_chunks.setItem(table_row, 2, item_status)
+                    self.table_chunks.setItem(table_row, 3, QTableWidgetItem(note))
 
     @pyqtSlot(int, int, int, str)
     def _on_file_progress_update(self, file_idx: int, completed: int, total: int, status_text: str):

@@ -28,7 +28,7 @@ MODEL_IDS = [
 # Mã ngôn ngữ (Model v2 trở lên)
 LANGUAGE_CODES = [None, "en", "vi", "ja", "zh"]
 
-# Danh sách User-Agent và Client Hints giả lập trình duyệt thực tế
+# Danh sách User-Agent và Client Hints giả lập trình duyệt thực tế (Windows Chrome)
 BROWSER_PROFILES = [
     {
         "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
@@ -36,19 +36,14 @@ BROWSER_PROFILES = [
         "platform": '"Windows"',
     },
     {
-        "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
-        "sec_ch_ua": '"Google Chrome";v="135", "Chromium";v="135", "Not-A.Brand";v="8"',
-        "platform": '"macOS"',
-    },
-    {
         "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
         "sec_ch_ua": '"Google Chrome";v="134", "Chromium";v="134", "Not-A.Brand";v="8"',
         "platform": '"Windows"',
     },
     {
-        "ua": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
-        "sec_ch_ua": '"Google Chrome";v="135", "Chromium";v="135", "Not-A.Brand";v="8"',
-        "platform": '"Linux"',
+        "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
+        "sec_ch_ua": '"Google Chrome";v="133", "Chromium";v="133", "Not-A.Brand";v="8"',
+        "platform": '"Windows"',
     },
 ]
 

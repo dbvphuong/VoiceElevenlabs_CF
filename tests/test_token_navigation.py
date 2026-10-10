@@ -48,3 +48,24 @@ async def test_repeated_connection_closed_reports_network_error(monkeypatch):
     with pytest.raises(NavigationNetworkError, match="Không mở được elevenlabs.io"):
         await farmer.get_token()
     farmer._page.evaluate.assert_not_awaited()
+
+
+def test_chromewebdata_is_network_error():
+    err1 = Exception("Page.goto: Navigation to \"https://elevenlabs.io/\" is interrupted by another navigation to \"chrome-error://chromewebdata/\"")
+    err2 = Exception("net::ERR_PROXY_CONNECTION_FAILED")
+    assert is_navigation_network_error(err1)
+    assert is_navigation_network_error(err2)
+
+
+@pytest.mark.asyncio
+async def test_chromewebdata_raises_navigation_network_error(monkeypatch):
+    monkeypatch.setattr("captcha.token_farmer.asyncio.sleep", AsyncMock())
+    farmer = make_farmer([
+        Exception("Navigation interrupted by another navigation to chrome-error://chromewebdata/"),
+        Exception("Navigation interrupted by another navigation to chrome-error://chromewebdata/"),
+        None,
+    ])
+
+    with pytest.raises(NavigationNetworkError):
+        await farmer.get_token()
+

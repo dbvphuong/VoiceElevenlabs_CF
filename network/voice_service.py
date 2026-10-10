@@ -1,5 +1,6 @@
 """Dịch vụ tra cứu và quản lý giọng đọc ElevenLabs (Voice Lookup & Search Service)."""
 
+import sys
 import json
 from pathlib import Path
 from typing import Optional, List, Dict, Any
@@ -172,13 +173,30 @@ DEFAULT_PREMADE_VOICES: List[Dict[str, Any]] = [
     }
 ]
 
-CACHE_FILE = Path(__file__).resolve().parent.parent / "config" / "voices_cache.json"
+def get_default_cache_path() -> Path:
+    """Xác định đường dẫn file cache giọng đọc, hỗ trợ môi trường đóng gói PyInstaller."""
+    if getattr(sys, "frozen", False):
+        exe_dir = Path(sys.executable).parent
+        candidate = exe_dir / "config" / "voices_cache.json"
+        if candidate.exists():
+            return candidate
+        internal_cand = exe_dir / "_internal" / "config" / "voices_cache.json"
+        if internal_cand.exists():
+            return internal_cand
+        if hasattr(sys, "_MEIPASS"):
+            meipass_cand = Path(sys._MEIPASS) / "config" / "voices_cache.json"
+            if meipass_cand.exists():
+                return meipass_cand
+        return candidate
+    return Path(__file__).resolve().parent.parent / "config" / "voices_cache.json"
+
+CACHE_FILE = get_default_cache_path()
 
 class VoiceService:
     """Quản lý tra cứu, tìm kiếm và đồng bộ danh sách giọng ElevenLabs."""
 
     def __init__(self, cache_path: Optional[Path] = None):
-        self.cache_path = cache_path or CACHE_FILE
+        self.cache_path = cache_path or get_default_cache_path()
         self._cache: Dict[str, Dict[str, Any]] = {}
         self._load_cache()
 

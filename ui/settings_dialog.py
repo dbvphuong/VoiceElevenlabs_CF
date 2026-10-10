@@ -35,18 +35,18 @@ class SettingsDialog(QDialog):
         group_proxy = QGroupBox("Cấu hình Proxy")
         layout_proxy = QVBoxLayout(group_proxy)
         
-        lbl_static = QLabel("Proxy tĩnh (cho trình duyệt - mỗi dòng 1 proxy dạng host:port:user:pass):")
+        lbl_static = QLabel("Proxy tĩnh (Chỉ dùng khi có IP cố định dạng host:port:user:pass - để trống nếu dùng Proxy xoay):")
         layout_proxy.addWidget(lbl_static)
         self.txt_static_proxies = QTextEdit()
-        self.txt_static_proxies.setFixedHeight(75)
-        self.txt_static_proxies.setPlaceholderText("192.168.1.1:8080:user:pass\n(hoặc để trống để dùng IP gốc)")
+        self.txt_static_proxies.setFixedHeight(65)
+        self.txt_static_proxies.setPlaceholderText("Để trống nếu bạn dùng Proxy xoay hoặc dùng IP mạng nhà (IP gốc)\nVí dụ định dạng nếu có: 103.152.22.1:8080:user:pass")
         layout_proxy.addWidget(self.txt_static_proxies)
 
-        lbl_rotating = QLabel("Proxy xoay (cho TTS - API key proxyxoay.shop hoặc proxy trực tiếp):")
+        lbl_rotating = QLabel("Proxy xoay (Dán API key proxyxoay.shop vào đây - tự động cấp IP cho cả Trình duyệt & TTS):")
         layout_proxy.addWidget(lbl_rotating)
         self.txt_rotating_proxies = QTextEdit()
         self.txt_rotating_proxies.setFixedHeight(75)
-        self.txt_rotating_proxies.setPlaceholderText("API key TopProxy hoặc proxy tĩnh")
+        self.txt_rotating_proxies.setPlaceholderText("Dán API key proxyxoay.shop (mỗi dòng 1 key, ví dụ: FhGCLyWKIGuhNDajgPvfSA)\nTool sẽ tự gọi API lấy IP mới và xoay luân phiên cho toàn bộ hệ thống.")
         layout_proxy.addWidget(self.txt_rotating_proxies)
 
         main_layout.addWidget(group_proxy)

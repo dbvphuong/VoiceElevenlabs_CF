@@ -143,3 +143,32 @@ def test_orchestrator_file_voice_profile_priority():
         assert prof2.voice_id == "vu_tru_id"
         assert prof2.speed == 0.95
 
+def test_orchestrator_template_model_synchronization():
+    """Kiểm tra: Khi voice template thay đổi model_index (v2 vs v4), Orchestrator phải đồng bộ ngay thay vì dùng model_index cũ bị đóng băng."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        file1 = tmp_path / "1.Ba Lan.txt"
+        file1.write_text("Hello", encoding="utf-8")
+
+        # Giả lập: FileVoiceProfiles lưu snapshot cũ có ModelIndex = 6 (eleven_v4)
+        # Nhưng VoiceTemplate "Vũ trụ lượng tử" trên UI đang là ModelIndex = 0 (eleven_multilingual_v2)
+        settings = AppSettings(
+            voice_templates=[
+                VoiceTemplate(name="Vũ trụ lượng tử", voice_id="vu_tru_id", model_index=0)
+            ],
+            file_voice_profiles=[
+                FileVoiceProfile(
+                    file_path=str(file1),
+                    voice=VoiceTemplate(name="vũ trụ lượng tử", voice_id="vu_tru_id", model_index=6)
+                )
+            ]
+        )
+
+        orchestrator = Orchestrator(settings=settings)
+        prof = orchestrator.get_voice_profile_for_file(file1)
+
+        # Phải trả về model_index = 0 (v2) đồng bộ theo template, KHÔNG ĐƯỢC dùng 6 (v4)
+        assert prof.model_index == 0
+        assert prof.name == "Vũ trụ lượng tử"
+
+

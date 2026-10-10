@@ -1,9 +1,10 @@
 """Mô hình cấu hình hệ thống bằng Pydantic, tương thích hoàn toàn với settings.json của bản C#."""
 
+import sys
 import json
 from pathlib import Path
 from typing import List, Optional
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, PrivateAttr
 from loguru import logger
 
 class VoiceTemplate(BaseModel):
@@ -54,35 +55,54 @@ class AppSettings(BaseModel):
     
     folder: str = Field(default="", alias="Folder")
     folders: List[str] = Field(default_factory=list, alias="Folders")
+    custom_files: List[str] = Field(default_factory=list, alias="CustomFiles")
     excluded_files: List[str] = Field(default_factory=list, alias="ExcludedFiles")
     scan_subfolders: bool = Field(default=False, alias="ScanSubfolders")
     output_file_suffix: str = Field(default="", alias="OutputFileSuffix")
     
     silence_enabled: bool = Field(default=True, alias="SilenceEnabled")
     silence_value: float = Field(default=0.3, alias="SilenceValue")
-    chunk_size: int = Field(default=333, alias="ChunkSize")
+    chunk_size: int = Field(default=500, alias="ChunkSize")
     thread_count: int = Field(default=1, alias="ThreadCount")
     continue_worker_on_blocking_errors: bool = Field(default=False, alias="ContinueWorkerOnBlockingErrors")
+    _config_path: Optional[Path] = PrivateAttr(default=None)
 
     @classmethod
     def load(cls, file_path: Path | str = "settings.json") -> "AppSettings":
         path = Path(file_path)
+        if not path.is_absolute() and getattr(sys, "frozen", False):
+            candidate = Path(sys.executable).parent / path
+            if candidate.exists() or not path.exists():
+                path = candidate
+
+        inst = cls()
         if path.exists():
             try:
                 content = path.read_text(encoding="utf-8")
                 data = json.loads(content)
                 logger.debug(f"Đã tải cấu hình từ {path.resolve()}")
-                return cls.model_validate(data)
+                inst = cls.model_validate(data)
             except Exception as e:
                 logger.warning(f"Lỗi đọc file cấu hình {path}: {e}. Dùng cấu hình mặc định.")
-        return cls()
+        inst._config_path = path.resolve()
+        return inst
 
-    def save(self, file_path: Path | str = "settings.json") -> None:
-        path = Path(file_path)
+    def save(self, file_path: Optional[Path | str] = None) -> None:
+        if file_path:
+            target_path = Path(file_path)
+            if not target_path.is_absolute() and getattr(sys, "frozen", False):
+                target_path = Path(sys.executable).parent / target_path
+        elif self._config_path:
+            target_path = self._config_path
+        else:
+            if getattr(sys, "frozen", False):
+                target_path = Path(sys.executable).parent / "settings.json"
+            else:
+                target_path = Path("settings.json")
         try:
             # Lưu theo alias để trùng khớp với định dạng PascalCase của C#
             data = self.model_dump(by_alias=True)
-            path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-            logger.debug(f"Đã lưu cấu hình ra {path.resolve()}")
+            target_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+            logger.debug(f"Đã lưu cấu hình ra {target_path.resolve()}")
         except Exception as e:
-            logger.error(f"Không thể lưu cấu hình ra {path}: {e}")
+            logger.error(f"Không thể lưu cấu hình ra {target_path}: {e}")

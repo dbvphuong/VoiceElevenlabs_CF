@@ -1,5 +1,4 @@
-"""Ghép nối các tệp MP3 và tạo khoảng lặng bằng FFmpeg."""
-
+import sys
 import os
 import shutil
 import subprocess
@@ -11,17 +10,30 @@ from loguru import logger
 
 def get_ffmpeg_path() -> str:
     """Tìm kiếm đường dẫn thực thi ffmpeg trên máy."""
-    # 1. Tìm trong thư mục chạy hiện tại
+    # 0. Nếu chạy từ gói PyInstaller onefile (_MEIPASS)
+    if hasattr(sys, "_MEIPASS"):
+        meipass_ffmpeg = Path(sys._MEIPASS) / "ffmpeg.exe"
+        if meipass_ffmpeg.exists():
+            return str(meipass_ffmpeg.resolve())
+
+    # 1. Tìm cạnh file exe thực thi (khi chạy dưới dạng portable exe)
+    if getattr(sys, "frozen", False):
+        exe_dir = Path(sys.executable).parent
+        exe_ffmpeg = exe_dir / "ffmpeg.exe"
+        if exe_ffmpeg.exists():
+            return str(exe_ffmpeg.resolve())
+
+    # 2. Tìm trong thư mục làm việc hiện tại
     bundled = Path("ffmpeg.exe")
     if bundled.exists():
         return str(bundled.resolve())
     
-    # 2. Tìm theo PATH của hệ điều hành
+    # 3. Tìm theo PATH của hệ điều hành
     which_path = shutil.which("ffmpeg")
     if which_path:
         return which_path
 
-    # 3. Fallback đường dẫn cài đặt thường thấy trên máy của user
+    # 4. Fallback đường dẫn cài đặt thường thấy trên máy của user
     known_path = Path(r"E:\SETUP\ffmpeg-2026-03-18-git-106616f13d-full_build\bin\ffmpeg.exe")
     if known_path.exists():
         return str(known_path)

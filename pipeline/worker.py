@@ -3,14 +3,14 @@
 import time
 import asyncio
 from pathlib import Path
-from typing import Optional, Callable
+from typing import Optional, Callable, Any
 from loguru import logger
 
 from config.settings import AppSettings
 from core.models import ChunkTask, TtsResult
 from network.proxy_pool import ProxyPool, RotatingProxyKey
 from network.tts_client import generate_tts, is_v4_model
-from captcha.token_farmer import NavigationNetworkError, TokenFarmer
+from captcha.token_farmer import NavigationNetworkError, TokenFarmer, is_navigation_network_error
 
 class WorkerState:
     """Trạng thái nội bộ của một Worker."""
@@ -78,16 +78,32 @@ class PipelineWorker:
     async def process_chunk(
         self,
         task: ChunkTask,
-        max_attempts: int,
-        retry_round: int,
-        cancel_event: asyncio.Event,
+        max_attempts: int = 3,
+        retry_round: int = 0,
+        cancel_event: Optional[Any] = None,
     ) -> bool:
         """Thực thi xử lý một ChunkTask.
         Trả về True nếu đoạn hoàn thành (hoặc bị bỏ qua sang vòng sau),
         Trả về False nếu gặp lỗi chặn nghiêm trọng khiến worker phải dừng lại.
         """
+        if cancel_event is None:
+            cancel_event = asyncio.Event()
+
         file_name = Path(task.file_path).name
         chunk_num = task.chunk_index + 1
+        if cancel_event.is_set():
+            return False
+
+        chunk_path = Path(task.chunk_mp3_path)
+        if chunk_path.exists() and chunk_path.stat().st_size > 0:
+            logger.info(f"[Worker {self.worker_id}] Chunk {chunk_num} ({file_name}) đã có file MP3 trên đĩa, bỏ qua.")
+            self._update_status(task, "Hoàn thành", "Đoạn MP3 đã có sẵn.")
+            if self.on_chunk_completed:
+                res = self.on_chunk_completed(task)
+                if asyncio.iscoroutine(res):
+                    await res
+            return True
+
         self._update_status(task, "Đang xử lý", f"[Bước 1/5] Chuẩn bị proxy...")
         
         attempts = 0
@@ -96,6 +112,13 @@ class PipelineWorker:
         last_failure = ""
 
         while not cancel_event.is_set():
+            if chunk_path.exists() and chunk_path.stat().st_size > 0:
+                self._update_status(task, "Hoàn thành", "Đoạn MP3 đã có sẵn.")
+                if self.on_chunk_completed:
+                    res = self.on_chunk_completed(task)
+                    if asyncio.iscoroutine(res):
+                        await res
+                return True
             attempts += 1
             if attempts > max_attempts:
                 msg = (
@@ -178,6 +201,17 @@ class PipelineWorker:
                     # ============================================================
                     # [BƯỚC 3/6 (NẾU NUÔI KHÉP KÍN): NUÔI PROFILE TRÊN CHÍNH IP NÀY]
                     # ============================================================
+                    if cancel_event.is_set():
+                        return False
+
+                    if chunk_path.exists() and chunk_path.stat().st_size > 0:
+                        self._update_status(task, "Hoàn thành", "Đoạn MP3 đã có sẵn.")
+                        if self.on_chunk_completed:
+                            res = self.on_chunk_completed(task)
+                            if asyncio.iscoroutine(res):
+                                await res
+                        return True
+
                     if self.warm_and_voice and not farmer.is_session_warmed:
                         logger.info(f"[Worker {self.worker_id}] [Bước 3/{tot_steps}: Nuôi Profile trên IP] Bắt đầu lướt web tăng Trust hCaptcha trên cùng IP...")
                         self._update_status(task, "Đang xử lý", f"[Bước 3/{tot_steps}] Nuôi Profile trên IP này...")
@@ -214,7 +248,7 @@ class PipelineWorker:
                         logger.warning(f"[Worker {self.worker_id}] {last_failure}")
 
                         # Lỗi điều hướng là lỗi kết nối/proxy, không phải profile Captcha hỏng.
-                        if isinstance(ex, NavigationNetworkError):
+                        if isinstance(ex, NavigationNetworkError) or is_navigation_network_error(ex):
                             self.state.consecutive_token_failures = 0
                             if self.farmer:
                                 try:
@@ -323,15 +357,25 @@ class PipelineWorker:
                 last_failure = result.message
                 logger.warning(f"[Worker {self.worker_id}] Thất bại tại chunk {chunk_num}: {result.message}")
 
-                # Kiểm tra nếu bị chặn do phát hiện bất thường (WAF/Anti-bot) hoặc lỗi Captcha
-                is_bot_or_captcha_blocked = (
+                # Kiểm tra nếu bị chặn do phát hiện bất thường mạng/IP (WAF/Anti-bot) hoặc lỗi Captcha
+                is_unusual_activity = (
                     "detected_unusual_activity" in result.message
                     or "hoạt động bất thường" in result.message
-                    or "hcaptcha" in result.message.lower()
                 )
-                if is_bot_or_captcha_blocked and used_profile_path:
+                if is_unusual_activity:
                     logger.warning(
-                        f"[Worker {self.worker_id}] [CẢNH BÁO] Profile '{used_profile_name}' bị chặn bởi ElevenLabs ({result.message}). "
+                        f"[Worker {self.worker_id}] [CẢNH BÁO] ElevenLabs phát hiện mạng/IP bất thường ({result.message}). "
+                        f"Giữ lại profile '{used_profile_name}' và buộc xoay IP Proxy mới..."
+                    )
+                    if proxy_key and not proxy_key.is_direct_proxy:
+                        proxy_key.current_ip = ""
+                        proxy_key.current_exit_ip = None
+                    if used_profile_path:
+                        from captcha.profile_manager import profile_manager
+                        profile_manager.release_profile(used_profile_path)
+                elif "hcaptcha" in result.message.lower() and used_profile_path:
+                    logger.warning(
+                        f"[Worker {self.worker_id}] [CẢNH BÁO] Profile '{used_profile_name}' bị lỗi hCaptcha ({result.message}). "
                         f"Tiến hành XÓA BỎ profile này khỏi thư mục profiles_dung..."
                     )
                     self._update_status(task, "Đang xử lý", f"Xóa profile bị chặn {used_profile_name}...")

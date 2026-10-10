@@ -5,8 +5,8 @@ import traceback
 from pathlib import Path
 from loguru import logger
 
-# Đường dẫn thư mục logs luôn trỏ đến thư mục logs của dự án
-ROOT_DIR = Path(__file__).resolve().parent.parent
+# Đường dẫn thư mục logs luôn trỏ đến thư mục logs của dự án hoặc cạnh file exe khi đóng gói
+ROOT_DIR = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent.parent
 LOGS_DIR = ROOT_DIR / "logs"
 
 def setup_application_logger(verbose: bool = False):

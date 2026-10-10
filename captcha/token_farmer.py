@@ -14,6 +14,15 @@ from network.proxy_pool import parse_proxy_string, resolve_proxy_or_api_key
 from captcha.profile_manager import profile_manager, cleanup_profile_locks
 
 
+import subprocess
+from captcha.chrome_launcher import (
+    launch_chrome_native,
+    wait_for_cdp_port,
+    kill_process_tree,
+    get_free_port,
+)
+
+
 class NavigationNetworkError(RuntimeError):
     """Không thể mở trang đích do kết nối mạng hoặc proxy."""
 
@@ -25,12 +34,17 @@ def is_navigation_network_error(error: Exception) -> bool:
         "net::err_connection_reset",
         "net::err_empty_response",
         "net::err_timed_out",
+        "net::err_tunnel_connection_failed",
+        "net::err_proxy_connection_failed",
         "page.goto: timeout",
+        "chromewebdata",
+        "interrupted by another navigation",
+        "chrome-error",
     ))
 
 
 class TokenFarmer:
-    """Quản lý một phiên trình duyệt Chrome (thừa hưởng Profile đã nuôi) để farm token hCaptcha."""
+    """Quản lý một phiên trình duyệt Chrome Native (CDP) để farm token hCaptcha."""
 
     def __init__(
         self,
@@ -50,7 +64,9 @@ class TokenFarmer:
             self.profile_path = profile_path or profile_manager.get_next_warmed_profile()
         self._proxy_info = parse_proxy_string(proxy_raw)
         self.is_session_warmed: bool = False
-        
+
+        self._proc: Optional[subprocess.Popen] = None
+        self._cdp_port: Optional[int] = None
         self._pw: Optional[Playwright] = None
         self._browser: Optional[Browser] = None
         self._context: Optional[BrowserContext] = None
@@ -63,11 +79,15 @@ class TokenFarmer:
         return self.profile_path.name if self.profile_path else "Chrome Mặc định"
 
     async def start(self) -> None:
-        """Khởi động trình duyệt với Profile đã nuôi và cấu hình Off-screen anti-detect."""
-        if self._context and self._page and not self._page.is_closed():
+        """Khởi động trình duyệt Google Chrome với Profile persistent sạch qua Playwright."""
+        if (
+            self._context
+            and self._page
+            and not self._page.is_closed()
+        ):
             return
 
-        if self._context or self._page:
+        if self._context or self._browser or self._page or self._pw:
             await self.close()
 
         # Phân giải proxy nếu là API key
@@ -77,6 +97,15 @@ class TokenFarmer:
                 self._proxy_info = p_info
                 self.proxy_raw = resolved_ip
 
+        target_profile = self.profile_path or profile_manager.get_next_warmed_profile()
+        if not target_profile or not target_profile.exists():
+            target_profile = profile_manager.create_new_nuoi_session(prefix="farmer_session")
+            self.is_new_nuoi = True
+
+        self.profile_path = target_profile
+        cleanup_profile_locks(target_profile)
+        logger.info(f"TokenFarmer nạp Profile Chrome: {target_profile.name}")
+
         self._pw = await async_playwright().start()
 
         browser_args = [
@@ -85,7 +114,6 @@ class TokenFarmer:
             "--disable-blink-features=AutomationControlled",
         ]
 
-        # Chạy giao diện thật nhưng dịch ra ngoài màn hình nếu off_screen=True
         if self.off_screen and not self.headless:
             browser_args.extend([
                 "--window-position=3000,3000",
@@ -103,80 +131,59 @@ class TokenFarmer:
             launch_kwargs["proxy"] = self._proxy_info["playwright"]
             logger.debug(f"TokenFarmer gắn Proxy: {self._proxy_info['playwright']['server']}")
 
-        # 1. Nếu có Profile đã nuôi trong profiles_dung -> launch_persistent_context
-        target_profile = self.profile_path or profile_manager.get_next_warmed_profile()
-
-        if target_profile and target_profile.exists():
-            self.profile_path = target_profile
-            cleanup_profile_locks(target_profile)
-            logger.info(f"TokenFarmer nạp Profile đã nuôi: {target_profile.name}")
+        try:
+            self._context = await self._pw.chromium.launch_persistent_context(
+                user_data_dir=str(target_profile),
+                channel="chrome",
+                **launch_kwargs
+            )
+        except Exception as ex1:
+            if "existing browser session" in str(ex1).lower():
+                logger.warning(f"Profile {target_profile.name} bị khóa bởi phiên trước, dọn dẹp và thử lại...")
+                cleanup_profile_locks(target_profile)
+                await asyncio.sleep(1.0)
             try:
                 self._context = await self._pw.chromium.launch_persistent_context(
                     user_data_dir=str(target_profile),
                     channel="chrome",
                     **launch_kwargs
                 )
-            except Exception as ex1:
-                if "existing browser session" in str(ex1).lower():
-                    logger.warning(f"Profile {target_profile.name} bị khóa bởi phiên trước, dọn dẹp và thử lại...")
-                    cleanup_profile_locks(target_profile)
-                    await asyncio.sleep(1.0)
-                try:
-                    self._context = await self._pw.chromium.launch_persistent_context(
-                        user_data_dir=str(target_profile),
-                        channel="chrome",
-                        **launch_kwargs
-                    )
-                except Exception:
-                    self._context = await self._pw.chromium.launch_persistent_context(
-                        user_data_dir=str(target_profile),
-                        **launch_kwargs
-                    )
-            self._page = self._context.pages[0] if self._context.pages else await self._context.new_page()
-
-        # 2. Nếu chưa có profile nào -> fallback khởi chạy browser thông thường
-        else:
-            logger.debug("Chưa có Profile đã nuôi sẵn, khởi chạy Chrome thông thường.")
-            try:
-                self._browser = await self._pw.chromium.launch(channel="chrome", **launch_kwargs)
             except Exception:
-                self._browser = await self._pw.chromium.launch(**launch_kwargs)
+                self._context = await self._pw.chromium.launch_persistent_context(
+                    user_data_dir=str(target_profile),
+                    **launch_kwargs
+                )
 
-            b_ver = self._browser.version
-            ua = f"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{b_ver} Safari/537.36"
-            self._context = await self._browser.new_context(
-                user_agent=ua,
-                locale="vi-VN",
-                viewport={"width": 1200, "height": 800}
-            )
-            self._page = await self._context.new_page()
+        self._page = self._context.pages[0] if self._context.pages else await self._context.new_page()
 
-        # Chặn video, audio, font nặng nhưng KHÔNG chặn hcaptcha/cloudflare để tránh challenge-error
+        # Cho phép đầy đủ script và tài nguyên ElevenLabs / Cloudflare / hCaptcha
         async def block_heavy_resources(route: Route):
             req_url = route.request.url.lower()
-            if "hcaptcha" in req_url or "cloudflare" in req_url:
+            if "hcaptcha" in req_url or "cloudflare" in req_url or "elevenlabs" in req_url:
                 await route.continue_()
                 return
 
             if route.request.resource_type in ["media", "font"]:
                 await route.abort()
-            elif route.request.resource_type == "image" and "hcaptcha" not in req_url:
-                await route.abort()
             else:
                 await route.continue_()
 
         await self._page.route("**/*", block_heavy_resources)
-        logger.debug("TokenFarmer đã sẵn sàng.")
+        logger.debug(f"TokenFarmer đã sẵn sàng với Profile {target_profile.name}.")
 
     async def warm_session(
         self,
         on_progress: Optional[Callable[[str], None]] = None,
         cancel_event: Optional[asyncio.Event] = None
     ) -> bool:
-        """Nuôi nhẹ Profile trực tiếp trên phiên trình duyệt và IP hiện tại (YouTube -> VnExpress -> hCaptcha Demo)."""
+        if cancel_event and cancel_event.is_set():
+            return False
+
         async with self._lock:
+            if cancel_event and cancel_event.is_set():
+                return False
             await self.start()
-            if not self._page:
+            if not self._page or (cancel_event and cancel_event.is_set()):
                 return False
 
             def report(msg: str):
@@ -185,6 +192,8 @@ class TokenFarmer:
                 logger.info(f"[{self.profile_name}] {msg}")
 
             async def safe_goto(url: str, timeout_ms: int = 30000) -> bool:
+                if cancel_event and cancel_event.is_set():
+                    return False
                 try:
                     await self._page.goto(url, wait_until="commit", timeout=timeout_ms)
                     return True
@@ -315,6 +324,8 @@ class TokenFarmer:
                     await self._page.goto("about:blank", timeout=5000)
                 except Exception:
                     pass
+                if is_navigation_network_error(e) and not isinstance(e, NavigationNetworkError):
+                    raise NavigationNetworkError(str(e)) from e
                 raise
 
     async def finish_and_save(self) -> Optional[Path]:
@@ -330,18 +341,38 @@ class TokenFarmer:
         return None
 
     async def close(self) -> None:
-        """Đóng toàn bộ phiên trình duyệt và giải phóng tài nguyên."""
+        """Đóng toàn bộ phiên trình duyệt Chrome và giải phóng tài nguyên."""
         current_prof = self.profile_path
+        try:
+            if self._page and not self._page.is_closed():
+                await self._page.close()
+        except Exception:
+            pass
         try:
             if self._context:
                 await self._context.close()
-            if self._browser:
+        except Exception:
+            pass
+        try:
+            if self._browser and self._browser.is_connected():
                 await self._browser.close()
+        except Exception:
+            pass
+        try:
             if self._pw:
                 await self._pw.stop()
         except Exception:
             pass
         finally:
+            if self._proc:
+                kill_process_tree(self._proc)
+                self._proc = None
+            self._cdp_port = None
+            self._context = None
+            self._browser = None
+            self._page = None
+            self._pw = None
+
             if current_prof:
                 cleanup_profile_locks(current_prof)
                 if self.is_new_nuoi and current_prof.exists() and "profiles_nuoi" in str(current_prof):
@@ -350,10 +381,6 @@ class TokenFarmer:
                 else:
                     profile_manager.release_profile(current_prof)
                 self.profile_path = None
-            self._context = None
-            self._browser = None
-            self._page = None
-            self._pw = None
 
     async def discard_profile(self) -> None:
         """Đóng toàn bộ phiên trình duyệt và xóa vĩnh viễn profile này do bị lỗi captcha hoặc bị chặn."""
