@@ -59,19 +59,32 @@ QLineEdit:focus, QTextEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBo
 }
 
 QPushButton {
-    background-color: #F1F5F9;
+    background-color: #F8FAFC;
     border: 1px solid #CBD5E1;
-    border-radius: 4px;
-    padding: 5px 12px;
-    font-weight: 500;
+    border-radius: 5px;
+    padding: 5px 14px;
+    font-weight: 600;
+    color: #1E293B;
 }
 
 QPushButton:hover {
-    background-color: #E2E8F0;
+    background-color: #EEF2FF;
+    border: 1px solid #6366F1;
+    color: #4338CA;
 }
 
 QPushButton:pressed {
-    background-color: #CBD5E1;
+    background-color: #E0E7FF;
+    border: 1px solid #4F46E5;
+    color: #3730A3;
+    padding-top: 6px;
+    padding-bottom: 4px;
+}
+
+QPushButton:disabled {
+    background-color: #F1F5F9;
+    border: 1px solid #E2E8F0;
+    color: #94A3B8;
 }
 
 QTableWidget {

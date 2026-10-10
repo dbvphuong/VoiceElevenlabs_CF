@@ -9,9 +9,29 @@ from loguru import logger
 ROOT_DIR = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent.parent
 LOGS_DIR = ROOT_DIR / "logs"
 
+def clean_old_logs(days: int = 5):
+    """Tự động dọn dẹp các tệp nhật ký cũ hơn `days` ngày khi khởi động ứng dụng."""
+    try:
+        if not LOGS_DIR.exists():
+            return
+        import time
+        cutoff_time = time.time() - (days * 86400)
+        for log_path in LOGS_DIR.glob("*.log"):
+            if log_path.name == "crash.log":
+                continue
+            try:
+                if log_path.stat().st_mtime < cutoff_time:
+                    log_path.unlink()
+                    logger.info(f"Đã dọn dẹp file log cũ (> {days} ngày): {log_path.name}")
+            except Exception:
+                pass
+    except Exception as e:
+        logger.debug(f"Không thể quét dọn log cũ: {e}")
+
 def setup_application_logger(verbose: bool = False):
     """Khởi tạo cấu hình ghi log tự động ra thư mục logs/ và Console."""
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    clean_old_logs(days=5)
 
     # Xóa các handler mặc định của loguru để tránh ghi lặp
     logger.remove()
@@ -37,7 +57,7 @@ def setup_application_logger(verbose: bool = False):
         format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <7} | {name}:{function}:{line} - {message}",
         level="DEBUG",
         rotation="10 MB",
-        retention="14 days",
+        retention="5 days",
         encoding="utf-8",
         enqueue=True,  # Thread-safe
         backtrace=True,
@@ -51,7 +71,7 @@ def setup_application_logger(verbose: bool = False):
         format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <7} | {name}:{function}:{line} - {message}",
         level="WARNING",
         rotation="10 MB",
-        retention="30 days",
+        retention="5 days",
         encoding="utf-8",
         enqueue=True,
         backtrace=True,

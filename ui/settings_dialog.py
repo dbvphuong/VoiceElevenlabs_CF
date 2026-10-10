@@ -89,12 +89,25 @@ class SettingsDialog(QDialog):
 
         self.btn_save = QPushButton("Lưu cấu hình")
         self.btn_save.setFixedHeight(34)
-        self.btn_save.setStyleSheet("background-color: #2563EB; color: white; font-weight: bold; padding: 0 16px; border-radius: 4px;")
+        self.btn_save.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_save.setStyleSheet("""
+            QPushButton {
+                background-color: #2563EB; color: white; font-weight: bold; padding: 0 16px;
+                border: 1px solid #1D4ED8; border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #3B82F6; border: 1px solid #93C5FD;
+            }
+            QPushButton:pressed {
+                background-color: #1D4ED8; padding-top: 2px;
+            }
+        """)
         self.btn_save.clicked.connect(self._on_save)
         btn_layout.addWidget(self.btn_save)
 
         self.btn_cancel = QPushButton("Hủy bỏ")
         self.btn_cancel.setFixedHeight(34)
+        self.btn_cancel.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_cancel.clicked.connect(self.reject)
         btn_layout.addWidget(self.btn_cancel)
 

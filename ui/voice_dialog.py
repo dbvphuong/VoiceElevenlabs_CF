@@ -108,7 +108,21 @@ class VoiceSearchDialog(QDialog):
         self.btn_select = QPushButton("✔ Chọn giọng này")
         self.btn_select.setFixedHeight(34)
         self.btn_select.setEnabled(False)
-        self.btn_select.setStyleSheet("background-color: #2563EB; color: white; font-weight: bold; padding: 0 18px; border-radius: 4px;")
+        self.btn_select.setStyleSheet("""
+            QPushButton {
+                background-color: #2563EB; color: white; font-weight: bold; padding: 0 18px;
+                border: 1px solid #1D4ED8; border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #3B82F6; border: 1px solid #93C5FD;
+            }
+            QPushButton:pressed {
+                background-color: #1D4ED8; padding-top: 2px;
+            }
+            QPushButton:disabled {
+                background-color: #93C5FD; color: #EFF6FF; border: none;
+            }
+        """)
         self.btn_select.clicked.connect(self._on_select_clicked)
         btn_layout.addWidget(self.btn_select)
 
@@ -118,6 +132,9 @@ class VoiceSearchDialog(QDialog):
         btn_layout.addWidget(btn_cancel)
 
         layout.addLayout(btn_layout)
+
+        for btn in self.findChildren(QPushButton):
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
 
     def _load_initial_data(self):
         # Nạp dữ liệu có sẵn từ cache ngay tức thì

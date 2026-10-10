@@ -92,10 +92,18 @@ class MainWindow(QMainWindow):
 
         self.btn_view_log = QPushButton("📋 Xem Log")
         self.btn_view_log.setFixedHeight(36)
-        self.btn_view_log.setStyleSheet(
-            "font-weight: bold; padding: 0 14px; background-color: #EDE9FE; color: #6D28D9; "
-            "border: 1px solid #C4B5FD; border-radius: 4px;"
-        )
+        self.btn_view_log.setStyleSheet("""
+            QPushButton {
+                font-weight: bold; padding: 0 14px; background-color: #EDE9FE; color: #6D28D9;
+                border: 1px solid #C4B5FD; border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #DDD6FE; border: 1px solid #8B5CF6; color: #4C1D95;
+            }
+            QPushButton:pressed {
+                background-color: #C4B5FD; padding-top: 2px;
+            }
+        """)
         self.btn_view_log.setToolTip("Mở cửa sổ theo dõi nhật ký hoạt động thời gian thực")
         self.btn_view_log.clicked.connect(self._open_log_window)
         header_layout.addWidget(self.btn_view_log)
@@ -129,7 +137,18 @@ class MainWindow(QMainWindow):
 
         self.btn_browse_voices = QPushButton("📚 Danh sách giọng")
         self.btn_browse_voices.setToolTip("Mở danh sách các giọng ElevenLabs để tìm kiếm & chọn")
-        self.btn_browse_voices.setStyleSheet("background-color: #0284C7; color: white; font-weight: bold; padding: 4px 12px; border-radius: 4px;")
+        self.btn_browse_voices.setStyleSheet("""
+            QPushButton {
+                background-color: #0284C7; color: white; font-weight: bold; padding: 4px 12px;
+                border: 1px solid #0369A1; border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #0EA5E9; border: 1px solid #38BDF8;
+            }
+            QPushButton:pressed {
+                background-color: #0369A1; padding-top: 5px;
+            }
+        """)
         self.btn_browse_voices.clicked.connect(self._on_browse_voices_clicked)
         row_voice.addWidget(self.btn_browse_voices)
 
@@ -232,10 +251,18 @@ class MainWindow(QMainWindow):
 
         self.btn_delete_file = QPushButton("🗑 Xóa row")
         self.btn_delete_file.setToolTip("Xóa các hàng tệp .txt đã chọn khỏi danh sách (Phím tắt: Delete / Backspace)")
-        self.btn_delete_file.setStyleSheet(
-            "color: #DC2626; font-weight: bold; padding: 4px 10px; border: 1px solid #FECACA; "
-            "background-color: #FEF2F2; border-radius: 4px;"
-        )
+        self.btn_delete_file.setStyleSheet("""
+            QPushButton {
+                color: #DC2626; font-weight: bold; padding: 4px 10px; border: 1px solid #FECACA;
+                background-color: #FEF2F2; border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #FEE2E2; border: 1px solid #EF4444; color: #B91C1C;
+            }
+            QPushButton:pressed {
+                background-color: #FECACA; padding-top: 5px;
+            }
+        """)
         self.btn_delete_file.clicked.connect(self._delete_selected_files)
         file_actions.addWidget(self.btn_delete_file)
 
@@ -300,7 +327,18 @@ class MainWindow(QMainWindow):
         chunk_header_box.addWidget(self.lbl_selected_file, 1)
 
         self.btn_play_output = QPushButton("▶ Nghe MP3 đầu ra")
-        self.btn_play_output.setStyleSheet("background-color: #16A34A; color: white; font-weight: bold; padding: 4px 10px; border-radius: 4px;")
+        self.btn_play_output.setStyleSheet("""
+            QPushButton {
+                background-color: #16A34A; color: white; font-weight: bold; padding: 4px 12px;
+                border: 1px solid #15803D; border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #22C55E; border: 1px solid #86EFAC;
+            }
+            QPushButton:pressed {
+                background-color: #15803D; padding-top: 5px;
+            }
+        """)
         self.btn_play_output.setToolTip("Mở / Phát tệp MP3 hoàn chỉnh của file này")
         self.btn_play_output.clicked.connect(self._play_selected_output_file)
         chunk_header_box.addWidget(self.btn_play_output)
@@ -393,8 +431,22 @@ class MainWindow(QMainWindow):
         # Nút 1: Nuôi Profile
         self.btn_warm_profile = QPushButton("🛠 Nuôi Profile Mới")
         self.btn_warm_profile.setFixedHeight(38)
-        self.btn_warm_profile.setToolTip("Khởi tạo và nuôi 1 Profile Chrome mới (YouTube -> VnExpress -> hCaptcha Demo) để tăng điểm uy tín")
-        self.btn_warm_profile.setStyleSheet("background-color: #7C3AED; color: white; font-weight: bold; font-size: 13px; border-radius: 4px; padding: 0 16px;")
+        self.btn_warm_profile.setToolTip("Khởi tạo và nuôi 1 Profile Chrome mới (hCaptcha Demo) để tăng điểm uy tín")
+        self.btn_warm_profile.setStyleSheet("""
+            QPushButton {
+                background-color: #7C3AED; color: white; font-weight: bold; font-size: 13px;
+                border: 1px solid #6D28D9; border-radius: 5px; padding: 0 16px;
+            }
+            QPushButton:hover {
+                background-color: #8B5CF6; border: 1px solid #A78BFA;
+            }
+            QPushButton:pressed {
+                background-color: #6D28D9; padding-top: 2px;
+            }
+            QPushButton:disabled {
+                background-color: #DDD6FE; color: #A78BFA; border: none;
+            }
+        """)
         self.btn_warm_profile.clicked.connect(lambda: self._start_warming_profile(continuous=False))
         btn_row.addWidget(self.btn_warm_profile)
 
@@ -402,7 +454,21 @@ class MainWindow(QMainWindow):
         self.btn_start_voice = QPushButton("▶ Tạo Voice")
         self.btn_start_voice.setFixedHeight(38)
         self.btn_start_voice.setToolTip("Xử lý danh sách văn bản .txt thành giọng nói bằng Profile đã nuôi sẵn")
-        self.btn_start_voice.setStyleSheet("background-color: #16A34A; color: white; font-weight: bold; font-size: 13px; border-radius: 4px; padding: 0 18px;")
+        self.btn_start_voice.setStyleSheet("""
+            QPushButton {
+                background-color: #16A34A; color: white; font-weight: bold; font-size: 13px;
+                border: 1px solid #15803D; border-radius: 5px; padding: 0 18px;
+            }
+            QPushButton:hover {
+                background-color: #22C55E; border: 1px solid #86EFAC;
+            }
+            QPushButton:pressed {
+                background-color: #15803D; padding-top: 2px;
+            }
+            QPushButton:disabled {
+                background-color: #BBF7D0; color: #86EFAC; border: none;
+            }
+        """)
         self.btn_start_voice.clicked.connect(self._start_voice_only)
         btn_row.addWidget(self.btn_start_voice)
 
@@ -410,7 +476,21 @@ class MainWindow(QMainWindow):
         self.btn_start_both = QPushButton("⚡ Tạo Voice + Nuôi (Khép kín)")
         self.btn_start_both.setFixedHeight(38)
         self.btn_start_both.setToolTip("Quy trình khép kín 1 luồng: Dùng cùng 1 IP để Nuôi Profile trước -> Rồi tạo Voice ngay trên chính IP đó để tối đa hóa trust hCaptcha")
-        self.btn_start_both.setStyleSheet("background-color: #D97706; color: white; font-weight: bold; font-size: 13px; border-radius: 4px; padding: 0 16px;")
+        self.btn_start_both.setStyleSheet("""
+            QPushButton {
+                background-color: #D97706; color: white; font-weight: bold; font-size: 13px;
+                border: 1px solid #B45309; border-radius: 5px; padding: 0 18px;
+            }
+            QPushButton:hover {
+                background-color: #F59E0B; border: 1px solid #FDE68A;
+            }
+            QPushButton:pressed {
+                background-color: #B45309; padding-top: 2px;
+            }
+            QPushButton:disabled {
+                background-color: #FDE68A; color: #FEF3C7; border: none;
+            }
+        """)
         self.btn_start_both.clicked.connect(self._start_both)
         btn_row.addWidget(self.btn_start_both)
 
@@ -418,7 +498,21 @@ class MainWindow(QMainWindow):
         self.btn_stop = QPushButton("⏹ Dừng lại")
         self.btn_stop.setFixedHeight(38)
         self.btn_stop.setEnabled(False)
-        self.btn_stop.setStyleSheet("background-color: #DC2626; color: white; font-weight: bold; font-size: 13px; border-radius: 4px; padding: 0 16px;")
+        self.btn_stop.setStyleSheet("""
+            QPushButton {
+                background-color: #DC2626; color: white; font-weight: bold; font-size: 13px;
+                border: 1px solid #B91C1C; border-radius: 5px; padding: 0 18px;
+            }
+            QPushButton:hover {
+                background-color: #EF4444; border: 1px solid #FCA5A5;
+            }
+            QPushButton:pressed {
+                background-color: #B91C1C; padding-top: 2px;
+            }
+            QPushButton:disabled {
+                background-color: #FECACA; color: #FCA5A5; border: none;
+            }
+        """)
         self.btn_stop.clicked.connect(self._stop_processing)
         btn_row.addWidget(self.btn_stop)
 
@@ -476,16 +570,28 @@ class MainWindow(QMainWindow):
 
         self.btn_bottom_log = QPushButton("📋 Xem Log")
         self.btn_bottom_log.setFixedHeight(28)
-        self.btn_bottom_log.setStyleSheet(
-            "font-weight: bold; padding: 0 14px; background-color: #EDE9FE; color: #6D28D9; "
-            "border: 1px solid #C4B5FD; border-radius: 4px;"
-        )
+        self.btn_bottom_log.setStyleSheet("""
+            QPushButton {
+                font-weight: bold; padding: 0 14px; background-color: #EDE9FE; color: #6D28D9;
+                border: 1px solid #C4B5FD; border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #DDD6FE; border: 1px solid #8B5CF6; color: #4C1D95;
+            }
+            QPushButton:pressed {
+                background-color: #C4B5FD; padding-top: 2px;
+            }
+        """)
         self.btn_bottom_log.setToolTip("Mở cửa sổ theo dõi nhật ký hoạt động thời gian thực")
         self.btn_bottom_log.clicked.connect(self._open_log_window)
         prog_row.addWidget(self.btn_bottom_log)
 
         ctrl_box.addLayout(prog_row)
         main_layout.addLayout(ctrl_box)
+
+        # Tự động gán con trỏ chuột hình bàn tay (PointingHandCursor) cho toàn bộ QPushButton
+        for btn in self.findChildren(QPushButton):
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
 
     def _open_log_window(self):
         """Mở hoặc kích hoạt cửa sổ xem log thời gian thực."""
