@@ -16,12 +16,15 @@ def get_ffmpeg_path() -> str:
         if meipass_ffmpeg.exists():
             return str(meipass_ffmpeg.resolve())
 
-    # 1. Tìm cạnh file exe thực thi (khi chạy dưới dạng portable exe)
+    # 1. Tìm cạnh file exe thực thi hoặc trong thư mục _internal
     if getattr(sys, "frozen", False):
         exe_dir = Path(sys.executable).parent
         exe_ffmpeg = exe_dir / "ffmpeg.exe"
         if exe_ffmpeg.exists():
             return str(exe_ffmpeg.resolve())
+        internal_ffmpeg = exe_dir / "_internal" / "ffmpeg.exe"
+        if internal_ffmpeg.exists():
+            return str(internal_ffmpeg.resolve())
 
     # 2. Tìm trong thư mục làm việc hiện tại
     bundled = Path("ffmpeg.exe")

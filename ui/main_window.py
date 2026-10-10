@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import (
     QApplication
 )
 from PyQt6.QtCore import Qt, pyqtSlot, QPoint
-from PyQt6.QtGui import QColor, QFont, QIcon, QAction, QKeySequence, QShortcut
+from PyQt6.QtGui import QColor, QFont, QIcon, QPixmap, QAction, QKeySequence, QShortcut
 from loguru import logger
 
 from config.constants import MODEL_IDS
@@ -28,12 +28,34 @@ from network.voice_service import voice_service
 from network.tts_client import is_v4_model
 from captcha.profile_manager import profile_manager, PROFILES_DUNG_DIR
 
+def get_asset_path(filename: str) -> Path:
+    """Lấy đường dẫn tệp tài nguyên tĩnh (assets) linh hoạt khi chạy script hoặc đóng gói exe."""
+    if hasattr(sys, "_MEIPASS"):
+        p = Path(sys._MEIPASS) / "assets" / filename
+        if p.exists():
+            return p
+    if getattr(sys, "frozen", False):
+        exe_dir = Path(sys.executable).parent
+        p = exe_dir / "assets" / filename
+        if p.exists():
+            return p
+        p = exe_dir / "_internal" / "assets" / filename
+        if p.exists():
+            return p
+    p = Path(__file__).resolve().parent.parent / "assets" / filename
+    if p.exists():
+        return p
+    return Path("assets") / filename
+
 class MainWindow(QMainWindow):
     """Giao diện chính mô phỏng và nâng cấp toàn diện từ C# WinForms Form1."""
 
     def __init__(self, settings_path: Optional[Path | str] = None):
         super().__init__()
         self.setWindowTitle("11labs CF - Python Desktop")
+        icon_path = get_asset_path("app_icon.png")
+        if icon_path.exists():
+            self.setWindowIcon(QIcon(str(icon_path)))
         self.resize(1180, 840)
         self.setMinimumSize(1020, 720)
 
@@ -70,23 +92,19 @@ class MainWindow(QMainWindow):
         main_layout.setContentsMargins(14, 12, 14, 12)
         main_layout.setSpacing(10)
 
-        # 1. Header (Tiêu đề & Nút Cài đặt)
+        # 1. Header (Logo Banner & Nút Cài đặt)
         header_layout = QHBoxLayout()
-        logo_label = QLabel("11")
-        logo_label.setFixedSize(42, 42)
-        logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        logo_label.setStyleSheet("background-color: #2563EB; color: white; font-weight: bold; font-size: 18px; border-radius: 6px;")
-        header_layout.addWidget(logo_label)
+        header_layout.setContentsMargins(0, 0, 0, 2)
 
-        title_box = QVBoxLayout()
-        title_box.setSpacing(2)
-        lbl_title = QLabel("11labs CF Automation")
-        lbl_title.setStyleSheet("font-size: 16px; font-weight: bold; color: #0F172A;")
-        lbl_sub = QLabel("Chuyển văn bản thành giọng nói ElevenLabs tự động (Bypass hCaptcha & Anonymous Stream)")
-        lbl_sub.setStyleSheet("font-size: 12px; color: #64748B;")
-        title_box.addWidget(lbl_title)
-        title_box.addWidget(lbl_sub)
-        header_layout.addLayout(title_box)
+        header_logo_label = QLabel()
+        header_logo_path = get_asset_path("header_logo.png")
+        if header_logo_path.exists():
+            pm = QPixmap(str(header_logo_path))
+            header_logo_label.setPixmap(pm.scaledToHeight(44, Qt.TransformationMode.SmoothTransformation))
+        else:
+            header_logo_label.setText("11labs CF Automation")
+            header_logo_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #0F172A;")
+        header_layout.addWidget(header_logo_label)
 
         header_layout.addStretch()
 

@@ -3,20 +3,25 @@
 import sys
 from pathlib import Path
 
-# Fix Unicode console cho Windows
+# Fix Unicode console cho Windows & gán AppUserModelID để hiện icon trên Taskbar
 if sys.platform == "win32":
     try:
         sys.stdout.reconfigure(encoding="utf-8")
         sys.stderr.reconfigure(encoding="utf-8")
     except Exception:
         pass
+    try:
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("elevenlabs.voicecf.desktop.1.0")
+    except Exception:
+        pass
 
 from PyQt6.QtWidgets import QApplication
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QIcon
 from loguru import logger
 
 from utils.logger import setup_application_logger
-from ui.main_window import MainWindow
+from ui.main_window import MainWindow, get_asset_path
 
 MODERN_QSS = """
 QMainWindow {
@@ -144,6 +149,10 @@ def main():
     try:
         app = QApplication(sys.argv)
         app.setStyleSheet(MODERN_QSS)
+
+        icon_path = get_asset_path("app_icon.png")
+        if icon_path.exists():
+            app.setWindowIcon(QIcon(str(icon_path)))
 
         font = QFont("Segoe UI", 9)
         app.setFont(font)
