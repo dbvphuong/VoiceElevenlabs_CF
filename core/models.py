@@ -53,12 +53,12 @@ class TtsResult:
                 rotate_proxy=True
             )
 
-        # 2. Yêu cầu gói trả phí (Model v4 hoặc tính năng trả phí)
+        # 2. Yêu cầu gói trả phí (Voice Library hoặc tính năng nâng cao yêu cầu gói trả phí)
         if code == "paid_plan_required" or status_code == 402:
             return cls(
                 success=False,
                 retryable=False,
-                message="Model này (Model v4) yêu cầu tài khoản trả phí ElevenLabs (Paid Plan Required). Không hỗ trợ tạo Free.",
+                message="Yêu cầu tài khoản trả phí ElevenLabs (Paid Plan Required). Giọng hoặc tính năng này không hỗ trợ gói Free.",
                 is_worker_stopping_error=True
             )
 

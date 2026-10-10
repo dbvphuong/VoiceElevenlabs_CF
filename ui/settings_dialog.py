@@ -27,7 +27,7 @@ class SettingsDialog(QDialog):
         group_api = QGroupBox("ElevenLabs API (Tùy chọn)")
         form_api = QFormLayout(group_api)
         self.txt_api_key = QLineEdit()
-        self.txt_api_key.setPlaceholderText("sk_... (Bắt buộc nếu dùng Model v4 hoặc gói trả phí)")
+        self.txt_api_key.setPlaceholderText("sk_... (Tùy chọn cho Official API Key, để trống nếu dùng hCaptcha)")
         form_api.addRow("API Key:", self.txt_api_key)
         main_layout.addWidget(group_api)
 

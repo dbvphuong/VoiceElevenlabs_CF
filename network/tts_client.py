@@ -70,7 +70,7 @@ async def generate_tts(
         "voice_settings": build_voice_settings_payload(profile),
     }
 
-    if model_id != "eleven_multilingual_v2" and 0 < lang_idx < len(LANGUAGE_CODES):
+    if model_id != "eleven_multilingual_v2" and not is_v4_model(model_idx) and 0 < lang_idx < len(LANGUAGE_CODES):
         lang_code = LANGUAGE_CODES[lang_idx]
         if lang_code:
             payload["language_code"] = lang_code
@@ -89,16 +89,8 @@ async def generate_tts(
     # Chọn ngẫu nhiên browser profile cho Headers
     ua_prof = random.choice(BROWSER_PROFILES)
 
-    # 4. Nhánh A: Chạy qua Official API Key nếu là Model v4 hoặc có API Key mà không có Captcha
-    if is_v4_model(model_idx) or (api_key and not hcaptcha_token):
-        if not api_key:
-            return TtsResult(
-                success=False,
-                retryable=False,
-                message="Model v4 hoặc chế độ API yêu cầu phải cấu hình ElevenLabsApiKey.",
-                is_worker_stopping_error=True
-            )
-
+    # 4. Nhánh A: Chạy qua Official API Key nếu không có hCaptcha token nhưng có API Key
+    if not hcaptcha_token and api_key and api_key.strip():
         target_url = ELEVENLABS_OFFICIAL_TTS_URL.format(voice_id=voice_id)
         headers = {
             "xi-api-key": api_key.strip(),
@@ -115,6 +107,15 @@ async def generate_tts(
             return TtsResult.from_error(resp.status_code, resp.text)
         except Exception as e:
             return TtsResult(success=False, retryable=True, message=f"Lỗi kết nối Official API: {e}")
+
+    # Nếu không có cả hCaptcha token lẫn API Key
+    if not hcaptcha_token and not (api_key and api_key.strip()):
+        return TtsResult(
+            success=False,
+            retryable=False,
+            message="Không tìm thấy hCaptcha token hoặc API Key để tạo âm thanh.",
+            is_worker_stopping_error=True
+        )
 
     # 5. Nhánh B: Chạy qua Anonymous TTS Endpoint kèm hCaptcha Token
     target_url = ELEVENLABS_ANONYMOUS_TTS_URL.format(voice_id=voice_id)

@@ -596,6 +596,8 @@ class MainWindow(QMainWindow):
         finally:
             self._is_loading_ui = False
 
+        self._update_model_controls(self.combo_model.currentIndex())
+
     def _save_settings(self):
         """Lưu cấu hình hệ thống ra file JSON theo self.settings_path."""
         if hasattr(self, 'file_list'):
@@ -795,6 +797,8 @@ class MainWindow(QMainWindow):
             finally:
                 self._is_loading_ui = False
 
+            self._update_model_controls(self.combo_model.currentIndex())
+
             # Cập nhật tên giọng
             cached = voice_service.get_cached_voice(tmpl.voice_id)
             if cached:
@@ -815,16 +819,8 @@ class MainWindow(QMainWindow):
 
         m_id = MODEL_IDS[index]
         self.settings.model_index = index
-
-        # Cảnh báo khi người dùng chọn Model v4 mà không có gói trả phí
-        if m_id in ("eleven_v4", "eleven_v4_turbo"):
-            QMessageBox.warning(
-                self,
-                "Lưu ý Model v4",
-                f"Mô hình '{m_id}' yêu cầu tài khoản trả phí (Paid Plan) kèm API Key của ElevenLabs.\n\n"
-                "Cơ chế tạo miễn phí (Free) qua hCaptcha không hỗ trợ Model v4.\n"
-                "👉 Nếu dùng Free, vui lòng chọn 'eleven_multilingual_v2' (chuẩn nhất cho tiếng Việt/Anh) hoặc 'eleven_flash_v2' / 'eleven_turbo_v2'."
-            )
+        # Cập nhật trạng thái thanh điều khiển phù hợp với Model v4 (v4 tự điều tiết Speed/Style)
+        self._update_model_controls(index)
 
         # Cập nhật model_index cho template đang chọn (nếu có)
         active_tmpl_name = self.settings.selected_voice_template_name
@@ -841,6 +837,21 @@ class MainWindow(QMainWindow):
 
         self._save_settings()
         self._update_files_table()
+
+    def _update_model_controls(self, index: int):
+        """Bật/tắt các thanh điều khiển không áp dụng cho Model v4 (Speed, Style, Boost)."""
+        is_v4 = is_v4_model(index)
+        self.num_speed.setEnabled(not is_v4)
+        self.num_style.setEnabled(not is_v4)
+        self.chk_boost.setEnabled(not is_v4)
+        if is_v4:
+            self.num_speed.setToolTip("Model v4 tự động điều tiết nhịp điệu (không dùng tham số Speed)")
+            self.num_style.setToolTip("Model v4 tự diễn đạt cảm xúc qua ngữ cảnh văn bản (không dùng tham số Style)")
+            self.chk_boost.setToolTip("Model v4 tự động tối ưu âm sắc")
+        else:
+            self.num_speed.setToolTip("Tốc độ phát âm (0.7 - 1.2)")
+            self.num_style.setToolTip("Cường điệu cảm xúc / Phong cách (Style Exaggeration)")
+            self.chk_boost.setToolTip("Tăng cường giọng nói (Speaker Boost)")
 
     def _on_voice_param_changed(self):
         """Khi người dùng thay đổi bất kỳ thông số giọng nào (ngôn ngữ, tốc độ, ổn định, tương đồng, style, boost)."""

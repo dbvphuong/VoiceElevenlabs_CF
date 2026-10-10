@@ -180,7 +180,7 @@ class PipelineWorker:
                 # [BƯỚC 2: MỞ CHROME + GÁN IP ĐÓ VÀO]
                 # ============================================================
                 hcaptcha_token = ""
-                need_captcha = not (is_v4_model(task.voice_profile.model_index) and self.settings.eleven_labs_api_key)
+                need_captcha = True
 
                 farmer: Optional[TokenFarmer] = None
                 if need_captcha:
