@@ -35,6 +35,28 @@ def parse_top_proxy_response(json_data: dict) -> Tuple[Optional[str], int, str]:
 
     return None, 0, f"TopProxy status {status}: {message}"
 
+async def query_top_proxy(api_key: str) -> Tuple[Optional[str], int, str]:
+    """Gửi một yêu cầu kiểm tra/đổi IP từ TopProxy một lần duy nhất.
+    Trả về: (proxy_str, wait_seconds, error_message)
+    """
+    if not api_key:
+        return None, 0, "API key rỗng"
+
+    url = TOP_PROXY_API_URL.format(key=quote(api_key))
+    try:
+        response = requests.get(url, timeout=12)
+        if response.status_code != 200:
+            err = f"TopProxy HTTP {response.status_code}: {response.text[:120]}"
+            logger.error(err)
+            return None, 0, err
+
+        data = response.json()
+        return parse_top_proxy_response(data)
+    except Exception as e:
+        err = f"Lỗi kết nối API TopProxy: {e}"
+        logger.error(err)
+        return None, 0, err
+
 async def get_new_proxy_from_top_proxy(
     api_key: str,
     max_wait_rounds: int = 1,
@@ -47,37 +69,26 @@ async def get_new_proxy_from_top_proxy(
     if not api_key:
         return None
 
-    url = TOP_PROXY_API_URL.format(key=quote(api_key))
-
     for _ in range(max_wait_rounds):
-        try:
-            logger.info(f"Đang yêu cầu IP mới từ TopProxy...")
-            response = requests.get(url, timeout=12)
-            if response.status_code != 200:
-                logger.error(f"TopProxy HTTP {response.status_code}: {response.text}")
+        logger.info(f"Đang yêu cầu IP mới từ TopProxy...")
+        proxy, wait_seconds, error = await query_top_proxy(api_key)
+
+        if proxy:
+            logger.success(f"Đã nhận proxy từ TopProxy: {proxy}")
+            return proxy
+
+        if wait_seconds > 0:
+            if not allow_wait:
+                logger.info(f"TopProxy yêu cầu chờ {wait_seconds}s, tự động chuyển sang key khác...")
                 return None
 
-            data = response.json()
-            proxy, wait_seconds, error = parse_top_proxy_response(data)
-
-            if proxy:
-                logger.success(f"Đã nhận proxy từ TopProxy: {proxy}")
-                return proxy
-
-            if wait_seconds > 0:
-                if not allow_wait:
-                    logger.info(f"TopProxy yêu cầu chờ {wait_seconds}s, tự động chuyển sang key khác...")
-                    return None
-
-                logger.info(f"TopProxy yêu cầu chờ {wait_seconds}s trước khi đổi IP mới...")
-                for _ in range(int(wait_seconds * 2)):
-                    await asyncio.sleep(0.5)
-            else:
+            logger.info(f"TopProxy yêu cầu chờ {wait_seconds}s trước khi đổi IP mới...")
+            for _ in range(int(wait_seconds * 2)):
+                await asyncio.sleep(0.5)
+        else:
+            if error:
                 logger.error(f"Lỗi từ TopProxy: {error}")
-                return None
-
-        except Exception as e:
-            logger.error(f"Lỗi kết nối API TopProxy: {e}")
             return None
 
     return None
+

@@ -8,6 +8,7 @@ from typing import Optional, Dict, Any, Callable
 from playwright.async_api import async_playwright, Playwright, Browser, BrowserContext, Page, Route
 from loguru import logger
 
+import re
 from config.constants import ELEVENLABS_HOME_URL
 from captcha.scripts import HCAPTCHA_TRIGGER_JS
 from network.proxy_pool import parse_proxy_string, resolve_proxy_or_api_key
@@ -64,6 +65,7 @@ class TokenFarmer:
             self.profile_path = profile_path or profile_manager.get_next_warmed_profile()
         self._proxy_info = parse_proxy_string(proxy_raw)
         self.is_session_warmed: bool = False
+        self.browser_fingerprint: Dict[str, str] = {}
 
         self._proc: Optional[subprocess.Popen] = None
         self._cdp_port: Optional[int] = None
@@ -72,6 +74,7 @@ class TokenFarmer:
         self._context: Optional[BrowserContext] = None
         self._page: Optional[Page] = None
         self._lock = asyncio.Lock()
+
 
     @property
     def profile_name(self) -> str:
@@ -169,6 +172,25 @@ class TokenFarmer:
                 await route.continue_()
 
         await self._page.route("**/*", block_heavy_resources)
+
+        # Trích xuất Fingerprint thực tế từ trình duyệt Chrome đang chạy để đồng bộ 100% với curl_cffi
+        try:
+            ua = await self._page.evaluate("navigator.userAgent")
+            platform = await self._page.evaluate("navigator.platform")
+            match_ver = re.search(r"Chrome/(\d+)", ua or "")
+            major_ver = match_ver.group(1) if match_ver else "124"
+            sec_ch_ua = f'"Google Chrome";v="{major_ver}", "Chromium";v="{major_ver}", "Not-A.Brand";v="8"'
+            plat_hint = f'"{platform}"' if platform else '"Windows"'
+
+            self.browser_fingerprint = {
+                "user_agent": ua,
+                "sec_ch_ua": sec_ch_ua,
+                "platform": plat_hint,
+            }
+            logger.debug(f"Fingerprint đồng bộ từ Chrome: major_ver={major_ver}, platform={plat_hint}")
+        except Exception as fp_err:
+            logger.debug(f"Không trích xuất được fingerprint từ page: {fp_err}")
+
         logger.debug(f"TokenFarmer đã sẵn sàng với Profile {target_profile.name}.")
 
     async def warm_session(
@@ -202,21 +224,33 @@ class TokenFarmer:
                     return False
 
             try:
-                # Nuôi siêu tốc: Nạp endpoint hCaptcha Demo và rê chuột 2s để tạo session trust
-                report("Đang nạp Script hCaptcha Demo & rê chuột 2s...")
+                # Nuôi tự nhiên: Nạp endpoint hCaptcha Demo và mô phỏng tương tác người dùng
+                report("Đang nạp Script hCaptcha Demo & tương tác tự nhiên để tăng Trust...")
                 ok_hc = await safe_goto("https://accounts.hcaptcha.com/demo", timeout_ms=15000)
                 if ok_hc and not (cancel_event and cancel_event.is_set()):
-                    for _ in range(random.randint(4, 6)):
+                    # 1. Cuộn trang nhẹ nhàng mô phỏng đọc nội dung
+                    try:
+                        await self._page.mouse.wheel(0, random.randint(150, 350))
+                        await asyncio.sleep(random.uniform(0.3, 0.6))
+                        await self._page.mouse.wheel(0, -random.randint(80, 200))
+                        await asyncio.sleep(random.uniform(0.2, 0.4))
+                    except Exception:
+                        pass
+
+                    # 2. Rê chuột ngẫu nhiên qua các vùng khác nhau với nhiều điểm dừng
+                    for _ in range(random.randint(5, 7)):
                         if cancel_event and cancel_event.is_set():
                             return False
-                        tx = random.randint(150, 750)
-                        ty = random.randint(120, 500)
-                        await self._page.mouse.move(tx, ty, steps=random.randint(4, 8))
-                        await asyncio.sleep(random.uniform(0.2, 0.35))
-                    await asyncio.sleep(0.5)
+                        tx = random.randint(160, 850)
+                        ty = random.randint(130, 520)
+                        await self._page.mouse.move(tx, ty, steps=random.randint(6, 12))
+                        await asyncio.sleep(random.uniform(0.2, 0.4))
+
+                    # 3. Dừng nghỉ tự nhiên
+                    await asyncio.sleep(random.uniform(0.5, 1.0))
 
                 self.is_session_warmed = True
-                report("Nuôi siêu tốc trên IP hoàn tất!")
+                report("Nuôi tự nhiên trên IP hoàn tất!")
                 return True
 
             except Exception as e:
@@ -248,10 +282,11 @@ class TokenFarmer:
                             logger.warning(f"Kết nối tới elevenlabs.io bị ngắt; thử lại sau 1.5s: {goto_err}")
                             await asyncio.sleep(1.5)
                     await self._page.wait_for_load_state("domcontentloaded", timeout=15000)
-                    # Mô phỏng chuột nhẹ để kích hoạt hành vi tự nhiên
+                    # Mô phỏng tương tác tự nhiên nhẹ trước khi giải captcha
                     try:
-                        await self._page.mouse.move(250, 300)
-                        await asyncio.sleep(0.4)
+                        await asyncio.sleep(random.uniform(0.6, 1.2))
+                        await self._page.mouse.move(random.randint(220, 500), random.randint(220, 420), steps=8)
+                        await asyncio.sleep(random.uniform(0.3, 0.5))
                     except Exception:
                         pass
 
@@ -260,6 +295,7 @@ class TokenFarmer:
                     self._page.evaluate(HCAPTCHA_TRIGGER_JS),
                     timeout=timeout_seconds
                 )
+
 
                 elapsed = time.time() - start_time
                 logger.debug(f"Đã lấy token hCaptcha thành công trong {elapsed:.2f}s (Độ dài: {len(token)}).")

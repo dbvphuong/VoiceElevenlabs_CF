@@ -48,6 +48,7 @@ async def generate_tts(
     api_key: Optional[str] = None,
     use_ferndocs: bool = False,
     timeout: float = 35.0,
+    browser_fingerprint: Optional[Dict[str, str]] = None,
 ) -> TtsResult:
     """Gửi yêu cầu sinh âm thanh tới ElevenLabs và lưu thành tệp MP3."""
     out_file = Path(output_path).resolve()
@@ -79,15 +80,27 @@ async def generate_tts(
         payload["hcaptcha_token"] = hcaptcha_token
 
     # 3. Chuẩn bị Proxy & Session curl_cffi
-    session = requests.Session(impersonate="chrome120")
+    try:
+        session = requests.Session(impersonate="chrome")
+    except Exception:
+        session = requests.Session(impersonate="chrome120")
+
     if proxy_url and proxy_url.lower() != "null":
         session.proxies = {
             "http": proxy_url,
             "https": proxy_url,
         }
 
-    # Chọn ngẫu nhiên browser profile cho Headers
-    ua_prof = random.choice(BROWSER_PROFILES)
+    # Đồng bộ User-Agent & Client Hints chuẩn với phiên Chrome vừa giải Captcha
+    if browser_fingerprint and browser_fingerprint.get("user_agent"):
+        ua_val = browser_fingerprint["user_agent"]
+        sec_ch_ua_val = browser_fingerprint.get("sec_ch_ua") or '"Google Chrome";v="131", "Chromium";v="131", "Not-A.Brand";v="8"'
+        platform_val = browser_fingerprint.get("platform") or '"Windows"'
+    else:
+        ua_prof = random.choice(BROWSER_PROFILES)
+        ua_val = ua_prof["ua"]
+        sec_ch_ua_val = ua_prof["sec_ch_ua"]
+        platform_val = ua_prof["platform"]
 
     # 4. Nhánh A: Chạy qua Official API Key nếu không có hCaptcha token nhưng có API Key
     if not hcaptcha_token and api_key and api_key.strip():
@@ -95,7 +108,7 @@ async def generate_tts(
         headers = {
             "xi-api-key": api_key.strip(),
             "Content-Type": "application/json",
-            "User-Agent": ua_prof["ua"],
+            "User-Agent": ua_val,
         }
         try:
             logger.debug(f"Gọi Official TTS API cho {out_file.name}...")
@@ -122,15 +135,15 @@ async def generate_tts(
     url_to_call = f"{FERNDOCS_PROXY_BASE}{target_url}" if use_ferndocs else target_url
 
     headers = {
-        "User-Agent": ua_prof["ua"],
+        "User-Agent": ua_val,
         "Accept": "*/*",
         "Accept-Language": "en-US,en;q=0.9,vi;q=0.8",
         "Origin": "https://elevenlabs.io",
         "Referer": "https://elevenlabs.io/",
         "Content-Type": "application/json",
-        "sec-ch-ua": ua_prof["sec_ch_ua"],
+        "sec-ch-ua": sec_ch_ua_val,
         "sec-ch-ua-mobile": "?0",
-        "sec-ch-ua-platform": ua_prof["platform"],
+        "sec-ch-ua-platform": platform_val,
         "sec-fetch-dest": "empty",
         "sec-fetch-mode": "cors",
         "sec-fetch-site": "cross-site" if use_ferndocs else "same-site",
@@ -146,6 +159,7 @@ async def generate_tts(
             json=payload,
             timeout=timeout
         )
+
 
         if response.status_code != 200:
             error_body = response.text

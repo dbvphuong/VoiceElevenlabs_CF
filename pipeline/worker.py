@@ -156,8 +156,9 @@ class PipelineWorker:
                     if proxy_key:
                         is_active = await self.proxy_pool.ensure_active_ip(proxy_key)
                         if not is_active:
-                            logger.warning(f"[Worker {self.worker_id}] Proxy {proxy_key.key[:10]}... không phản hồi mạng, tự động đổi sang proxy khác trong pool...")
-                            await self.proxy_pool.release_key(proxy_key, cooldown_seconds=60)
+                            logger.info(f"[Worker {self.worker_id}] Proxy {proxy_key.key[:10]}... chưa sẵn sàng hoặc đang chờ cooldown/tạm ngắt, đổi sang key khác...")
+                            # Không phạt thêm 60s cứng: ensure_active_ip đã tự đặt cooldown chuẩn xác
+                            await self.proxy_pool.release_key(proxy_key, cooldown_seconds=0)
                             continue
 
                         p_info = proxy_key.proxy_info
@@ -281,26 +282,30 @@ class PipelineWorker:
                         if self.state.consecutive_token_failures >= 2:
                             prof_name = farmer.profile_name if farmer else "N/A"
                             logger.warning(
-                                f"[Worker {self.worker_id}] [CẢNH BÁO] Profile '{prof_name}' bị lỗi Captcha {self.state.consecutive_token_failures} lần liên tiếp. "
-                                f"Tiến hành xóa profile này..."
+                                f"[Worker {self.worker_id}] Gặp lỗi lấy Captcha {self.state.consecutive_token_failures} lần liên tiếp trên '{prof_name}' "
+                                f"(nghi ngờ do IP/Proxy bị rate-limit hoặc trust thấp). Giải phóng phiên và đổi IP mới..."
                             )
-                            self._update_status(task, "Đang xử lý", f"Xóa profile lỗi {prof_name}, đổi profile...")
-                            if farmer:
-                                await farmer.discard_profile()
-                            self.farmer = None
+                            self._update_status(task, "Đang xử lý", f"Đổi IP/phiên mới do lỗi Captcha liên tiếp...")
+                            if self.farmer:
+                                try:
+                                    await self.farmer.close()
+                                except Exception:
+                                    pass
+                                self.farmer = None
                             self.state.consecutive_token_failures = 0
-                            try:
-                                farmer = await self._ensure_farmer(raw_proxy_for_farmer, force_restart=True)
-                            except Exception:
-                                pass
+                            # Buộc xoay IP mới ở lần thử tiếp theo (không xóa vứt bỏ profile)
+                            if proxy_key and not proxy_key.is_direct_proxy:
+                                proxy_key.current_ip = ""
+                                proxy_key.current_exit_ip = None
                         await asyncio.sleep(2)
                         continue
 
                     logger.info("       ↓")
 
-                # Lưu thông tin profile vừa dùng để xử lý xóa nếu bị chặn
+                # Lưu thông tin profile vừa dùng để xử lý an toàn
                 used_profile_path = farmer.profile_path if farmer else None
                 used_profile_name = farmer.profile_name if farmer else "N/A"
+                browser_fp = farmer.browser_fingerprint if farmer else None
 
                 # ============================================================
                 # [BƯỚC GỬI REQUEST TTS & NHẬN MP3]
@@ -317,6 +322,7 @@ class PipelineWorker:
                     proxy_url=proxy_url_for_curl,
                     voice_profile=task.voice_profile,
                     api_key=self.settings.eleven_labs_api_key,
+                    browser_fingerprint=browser_fp,
                 )
 
                 # ============================================================
@@ -357,15 +363,21 @@ class PipelineWorker:
                 last_failure = result.message
                 logger.warning(f"[Worker {self.worker_id}] Thất bại tại chunk {chunk_num}: {result.message}")
 
-                # Kiểm tra nếu bị chặn do phát hiện bất thường mạng/IP (WAF/Anti-bot) hoặc lỗi Captcha
+                # Kiểm tra nếu bị chặn do phát hiện bất thường mạng/IP (WAF/Anti-bot) hoặc hết lượt demo trên IP
                 is_unusual_activity = (
                     "detected_unusual_activity" in result.message
                     or "hoạt động bất thường" in result.message
                 )
-                if is_unusual_activity:
+                is_quota_exhausted = (
+                    "sign_in_required" in result.message
+                    or "hết lượt demo" in result.message.lower()
+                )
+                needs_ip_rotate = is_unusual_activity or is_quota_exhausted or result.rotate_proxy
+
+                if needs_ip_rotate:
                     logger.warning(
-                        f"[Worker {self.worker_id}] [CẢNH BÁO] ElevenLabs phát hiện mạng/IP bất thường ({result.message}). "
-                        f"Giữ lại profile '{used_profile_name}' và buộc xoay IP Proxy mới..."
+                        f"[Worker {self.worker_id}] [XOAY IP] ElevenLabs yêu cầu đổi IP ({result.message}). "
+                        f"Buộc xoay IP mới và giữ an toàn dữ liệu profile '{used_profile_name}'..."
                     )
                     if proxy_key and not proxy_key.is_direct_proxy:
                         proxy_key.current_ip = ""
@@ -375,12 +387,14 @@ class PipelineWorker:
                         profile_manager.release_profile(used_profile_path)
                 elif "hcaptcha" in result.message.lower() and used_profile_path:
                     logger.warning(
-                        f"[Worker {self.worker_id}] [CẢNH BÁO] Profile '{used_profile_name}' bị lỗi hCaptcha ({result.message}). "
-                        f"Tiến hành XÓA BỎ profile này khỏi thư mục profiles_dung..."
+                        f"[Worker {self.worker_id}] [CẢNH BÁO] Token hCaptcha không hợp lệ/hết hạn ({result.message}). "
+                        f"Giải phóng profile '{used_profile_name}' và đổi IP..."
                     )
-                    self._update_status(task, "Đang xử lý", f"Xóa profile bị chặn {used_profile_name}...")
+                    if proxy_key and not proxy_key.is_direct_proxy:
+                        proxy_key.current_ip = ""
+                        proxy_key.current_exit_ip = None
                     from captcha.profile_manager import profile_manager
-                    profile_manager.delete_profile(used_profile_path)
+                    profile_manager.release_profile(used_profile_path)
 
                 if not result.retryable:
                     if result.is_worker_stopping_error and self.settings.continue_worker_on_blocking_errors:
@@ -388,6 +402,7 @@ class PipelineWorker:
                             cooldown_seconds = 60 if proxy_key.is_direct_proxy else 0
                             if not proxy_key.is_direct_proxy:
                                 proxy_key.current_ip = ""
+                                proxy_key.current_exit_ip = None
 
                         blocking_attempts += 1
                         if blocking_attempts < max_blocking_attempts:
@@ -398,6 +413,7 @@ class PipelineWorker:
 
                         logger.warning(f"[Worker {self.worker_id}] Đã hết {max_blocking_attempts} lần lỗi chặn; chuyển sang vòng sau.")
                         return True
+
 
                     logger.warning(
                         f"[Worker {self.worker_id}] Chunk {chunk_num} không thể tạo (Lỗi: {result.message}). "
